@@ -22,11 +22,15 @@
 # the exact commit being released. RubyGems versions can never be reused, so the
 # publish step asks for confirmation first.
 #
-# If CI fails after the push, the release commit is already on main but nothing
-# is tagged or published. Fix forward with a follow-up commit and re-run — note
-# that preflight will then complain about an empty [Unreleased] section, because
-# this run already consumed it; in that case finish the release by hand with the
-# commands printed by the CI-failure message.
+# RESUMING. Steps 4-7 can only run once: they consume [Unreleased] and bump the
+# version. So if a run stops after the release commit exists — CI went red, you
+# hit Ctrl-C at the publish prompt, gem push timed out — re-running detects that
+# and resumes from step 8, skipping straight to push/CI/publish. Detection is:
+# a "Release v<current version>" commit is reachable from HEAD, and the version
+# is not fully published (no tag, or no GitHub release for it). Step 9 is
+# idempotent, so a half-finished publish picks up where it left off. To abandon
+# an unfinished release instead of resuming, drop the release commit (git reset
+# --hard, force-push if it was already pushed) and start over.
 #
 #   bin/release                    # prompt for the version, then full run
 #   bin/release 0.6.0              # release 0.6.0
@@ -58,6 +62,8 @@ for arg in "$@"; do
 done
 
 CURRENT_VERSION=$(ruby -r./lib/flightdeck/version -e 'puts Flightdeck::VERSION')
+# Versions land in grep/regex patterns; the dots have to be literal.
+escape_dots() { printf '%s' "$1" | sed 's/\./\\./g'; }
 
 # ---- 1. preflight ----------------------------------------------------------
 say "Preflight (current version $CURRENT_VERSION)"
@@ -67,26 +73,62 @@ git diff --quiet && git diff --cached --quiet || fail "working tree is not clean
 # The release commit is `git add -A`, so untracked files would be swept into it.
 [ -z "$(git status --porcelain)" ] || fail "working tree has untracked files — commit, remove or ignore them first"
 git fetch origin main --tags --quiet
-[ "$(git rev-parse HEAD)" = "$(git rev-parse origin/main)" ] || fail "main is not in sync with origin/main — push or pull first"
 command -v gh >/dev/null || fail "gh CLI is required"
 
-# The [Unreleased] section is what gets released; it has to exist and say something.
-CHANGELOG_STATUS=0
-ruby -e '
-  c = File.read("CHANGELOG.md")
-  exit 1 unless c.include?("## [Unreleased]")
-  exit 2 if c[/^## \[Unreleased\]\n(.*?)(?=^## \[|^\[)/m, 1].to_s.strip.empty?
-' || CHANGELOG_STATUS=$?
-case "$CHANGELOG_STATUS" in
-  0) ;;
-  1) fail "CHANGELOG.md has no '## [Unreleased]' section" ;;
-  2) fail "the '## [Unreleased]' section of CHANGELOG.md is empty — add entries for this release first" ;;
-  *) fail "could not read CHANGELOG.md" ;;
-esac
+# Is there an unfinished release of the current version to resume? (See RESUMING.)
+RESUME=0
+CURRENT_TAG="v$CURRENT_VERSION"
+if [ -n "$(git log -1 --format=%H --grep="^Release v$(escape_dots "$CURRENT_VERSION")\$" HEAD)" ]; then
+  if ! git rev-parse -q --verify "refs/tags/$CURRENT_TAG" >/dev/null ||
+     ! gh release view "$CURRENT_TAG" >/dev/null 2>&1; then
+    RESUME=1
+  fi
+fi
+
+if [ "$RESUME" = 1 ]; then
+  # The release commit may never have been pushed; ahead of origin/main is fine,
+  # diverged is not.
+  git merge-base --is-ancestor origin/main HEAD ||
+    fail "main has diverged from origin/main — resolve that before resuming the release of $CURRENT_VERSION"
+else
+  [ "$(git rev-parse HEAD)" = "$(git rev-parse origin/main)" ] || fail "main is not in sync with origin/main — push or pull first"
+
+  # The [Unreleased] section is what gets released; it has to exist and say something.
+  CHANGELOG_STATUS=0
+  ruby -e '
+    c = File.read("CHANGELOG.md")
+    exit 1 unless c.include?("## [Unreleased]")
+    exit 2 if c[/^## \[Unreleased\]\n(.*?)(?=^## \[|^\[)/m, 1].to_s.strip.empty?
+  ' || CHANGELOG_STATUS=$?
+  case "$CHANGELOG_STATUS" in
+    0) ;;
+    1) fail "CHANGELOG.md has no '## [Unreleased]' section" ;;
+    2) fail "the '## [Unreleased]' section of CHANGELOG.md is empty — add entries for this release first" ;;
+    *) fail "could not read CHANGELOG.md" ;;
+  esac
+fi
 
 # ---- 2. pick the version ---------------------------------------------------
 VERSION=""
-if [ -n "$VERSION_ARG" ]; then
+TAG=""
+if [ "$RESUME" = 1 ]; then
+  if [ -n "$VERSION_ARG" ] && [ "$VERSION_ARG" != "$CURRENT_VERSION" ]; then
+    fail "the release of $CURRENT_VERSION is unfinished — finish it with 'bin/release' (or 'bin/release $CURRENT_VERSION')
+before releasing $VERSION_ARG. To abandon it instead, drop the Release $CURRENT_TAG commit and start over."
+  fi
+  VERSION="$CURRENT_VERSION"
+  TAG="$CURRENT_TAG"
+
+  say "Resuming the unfinished release of $VERSION"
+  printf 'The Release %s commit already exists, so the changelog rollover, version bump\n' "$TAG"
+  printf 'and asset rebuild are done. Skipping the local suite too — it passed for this\n'
+  printf 'commit, and CI is the gate on exactly what gets published.\n'
+
+  if [ "$DRY_RUN" = 1 ]; then
+    say "Dry run complete — resume would push (if needed), wait for CI, then publish $VERSION"
+    exit 0
+  fi
+elif [ -n "$VERSION_ARG" ]; then
   VERSION="$VERSION_ARG"
 elif [ "$DRY_RUN" = 1 ]; then
   say "Dry run without a VERSION argument — skipping the version prompt"
@@ -97,8 +139,7 @@ else
   [ -n "$VERSION" ] || VERSION="$SUGGESTION"
 fi
 
-TAG=""
-if [ -n "$VERSION" ]; then
+if [ "$RESUME" = 0 ] && [ -n "$VERSION" ]; then
   ruby -e 'exit ARGV[0].match?(/\A\d+\.\d+\.\d+\z/) ? 0 : 1' "$VERSION" ||
     fail "version '$VERSION' is not a strict X.Y.Z version"
   ruby -e 'exit Gem::Version.new(ARGV[0]) > Gem::Version.new(ARGV[1]) ? 0 : 1' "$VERSION" "$CURRENT_VERSION" ||
@@ -110,30 +151,31 @@ if [ -n "$VERSION" ]; then
   say "Releasing flightdeck $VERSION"
 fi
 
-# ---- 3. verify (before anything on disk changes) ---------------------------
-say "Rubocop"
-bundle exec rubocop --parallel
+if [ "$RESUME" = 0 ]; then
+  # ---- 3. verify (before anything on disk changes) -------------------------
+  say "Rubocop"
+  bundle exec rubocop --parallel
 
-say "Fast suite (full host)"
-bundle exec rake test
+  say "Fast suite (full host)"
+  bundle exec rake test
 
-say "Fast suite (API-only host)"
-FLIGHTDECK_TEST_API_ONLY=1 bundle exec rake test
+  say "Fast suite (API-only host)"
+  FLIGHTDECK_TEST_API_ONLY=1 bundle exec rake test
 
-say "System tests"
-bundle exec rake test:system
+  say "System tests"
+  bundle exec rake test:system
 
-if [ "$DRY_RUN" = 1 ]; then
-  say "Dry run complete — nothing was modified, committed or published"
-  exit 0
-fi
+  if [ "$DRY_RUN" = 1 ]; then
+    say "Dry run complete — nothing was modified, committed or published"
+    exit 0
+  fi
 
-# ---- 4. changelog rollover -------------------------------------------------
-say "Rolling CHANGELOG.md over to $VERSION"
+  # ---- 4. changelog rollover -----------------------------------------------
+  say "Rolling CHANGELOG.md over to $VERSION"
 
-# Deterministic, no LLM. Builds the new file in memory, verifies it, and only
-# then writes — a failed check leaves CHANGELOG.md exactly as it was.
-NEW_VERSION="$VERSION" CURRENT_VERSION="$CURRENT_VERSION" ruby - <<'RUBY' || fail "changelog rollover failed — CHANGELOG.md was not modified"
+  # Deterministic, no LLM. Builds the new file in memory, verifies it, and only
+  # then writes — a failed check leaves CHANGELOG.md exactly as it was.
+  NEW_VERSION="$VERSION" CURRENT_VERSION="$CURRENT_VERSION" ruby - <<'RUBY' || fail "changelog rollover failed — CHANGELOG.md was not modified"
 require "date"
 
 path            = "CHANGELOG.md"
@@ -187,9 +229,9 @@ end
 File.write(path, updated)
 RUBY
 
-# ---- 5. bump the version ---------------------------------------------------
-say "Bumping lib/flightdeck/version.rb to $VERSION"
-NEW_VERSION="$VERSION" CURRENT_VERSION="$CURRENT_VERSION" ruby - <<'RUBY' || fail "could not bump lib/flightdeck/version.rb"
+  # ---- 5. bump the version -------------------------------------------------
+  say "Bumping lib/flightdeck/version.rb to $VERSION"
+  NEW_VERSION="$VERSION" CURRENT_VERSION="$CURRENT_VERSION" ruby - <<'RUBY' || fail "could not bump lib/flightdeck/version.rb"
 path    = "lib/flightdeck/version.rb"
 current = File.read(path)
 bumped  = current.sub(/VERSION = "#{Regexp.escape(ENV.fetch("CURRENT_VERSION"))}"/,
@@ -201,51 +243,83 @@ end
 File.write(path, bumped)
 RUBY
 
-# ---- 6. build --------------------------------------------------------------
-say "Installing gems and rebuilding assets"
-bundle install --quiet
-bundle exec rake assets:build
-bundle exec rake assets:check
+  # ---- 6. build ------------------------------------------------------------
+  say "Installing gems and rebuilding assets"
+  bundle install --quiet
+  bundle exec rake assets:build
+  bundle exec rake assets:check
 
-# ---- 7. commit -------------------------------------------------------------
-say "Committing Release $TAG"
-git add -A
-git commit -m "Release $TAG"
+  # ---- 7. commit -----------------------------------------------------------
+  say "Committing Release $TAG"
+  git add -A
+  git commit -m "Release $TAG"
+fi
 
 # ---- 8. push and wait for CI ----------------------------------------------
-say "Pushing main"
-git push origin main
+if [ "$(git rev-parse HEAD)" = "$(git rev-parse origin/main)" ]; then
+  say "origin/main is already at $(git rev-parse --short HEAD) — nothing to push"
+else
+  say "Pushing main"
+  git push origin main
+fi
 
+SHA=$(git rev-parse HEAD)
 say "Waiting for CI on $(git rev-parse --short HEAD)"
-sleep 10
-RUN_ID=$(gh run list --branch main --limit 1 --json databaseId --jq '.[0].databaseId')
+# Match the run to this exact commit: on a resume the newest run on main may be
+# an older one, and right after a push there may be no run registered yet.
+RUN_ID=""
+for _ in $(seq 1 30); do
+  RUN_ID=$(gh run list --branch main --limit 20 --json databaseId,headSha \
+             --jq "[.[] | select(.headSha == \"$SHA\")] | .[0].databaseId // empty")
+  [ -n "$RUN_ID" ] && break
+  sleep 5
+done
+[ -n "$RUN_ID" ] || fail "no GitHub Actions run appeared for $SHA within 150s — check 'gh run list' and re-run this script to resume"
+
 gh run watch "$RUN_ID" --exit-status || fail "CI failed — nothing was tagged or published.
-The Release $TAG commit is already on main. Fix forward and either re-run this
-script (preflight will refuse until [Unreleased] has entries again, since this
-run consumed it) or finish by hand once CI is green:
-  git tag -a $TAG -m \"flightdeck $VERSION\" && git push origin $TAG
-  gem build flightdeck.gemspec && gem push flightdeck-$VERSION.gem
-  gh release create $TAG flightdeck-$VERSION.gem --title \"flightdeck $VERSION\" --notes-file <notes>"
+The Release $TAG commit is already on main. Fix forward with a follow-up commit
+and re-run this script: it will detect the unfinished release of $VERSION and
+resume from the push/CI/publish step."
 
 # ---- 9. publish ------------------------------------------------------------
+# Every step here checks before acting, so an interrupted publish can be resumed.
 printf '\nCI is green. Publish %s to RubyGems and tag %s? This cannot be undone. [y/N] ' "$VERSION" "$TAG"
 read -r answer
-[ "$answer" = "y" ] || [ "$answer" = "Y" ] || fail "aborted before publishing"
+[ "$answer" = "y" ] || [ "$answer" = "Y" ] || fail "aborted before publishing — re-run this script to resume"
 
-say "Tagging $TAG"
-git tag -a "$TAG" -m "flightdeck $VERSION"
-git push origin "$TAG"
+if git rev-parse -q --verify "refs/tags/$TAG" >/dev/null; then
+  say "Tag $TAG already exists locally"
+else
+  say "Tagging $TAG"
+  git tag -a "$TAG" -m "flightdeck $VERSION"
+fi
+if [ -z "$(git ls-remote --tags origin "refs/tags/$TAG")" ]; then
+  git push origin "$TAG"
+else
+  say "Tag $TAG is already on origin"
+fi
 
-say "Building and pushing the gem"
-rm -f "flightdeck-$VERSION.gem"
-gem build flightdeck.gemspec
-gem push "flightdeck-$VERSION.gem"
+if gem list --remote --exact --all flightdeck 2>/dev/null | grep -qE "[ (]$(escape_dots "$VERSION")[,)]"; then
+  say "flightdeck $VERSION is already on RubyGems — skipping the gem push"
+else
+  say "Building and pushing the gem"
+  rm -f "flightdeck-$VERSION.gem"
+  gem build flightdeck.gemspec
+  gem push "flightdeck-$VERSION.gem"
+fi
 
-say "Creating the GitHub release"
-# Release notes: the CHANGELOG section for this version.
-awk "/^## \[$VERSION\]/{flag=1; next} /^## \[/{flag=0} flag" CHANGELOG.md > /tmp/flightdeck-release-notes.md
-gh release create "$TAG" "flightdeck-$VERSION.gem" \
-  --title "flightdeck $VERSION" \
-  --notes-file /tmp/flightdeck-release-notes.md
+if gh release view "$TAG" >/dev/null 2>&1; then
+  say "GitHub release $TAG already exists"
+else
+  say "Creating the GitHub release"
+  [ -f "flightdeck-$VERSION.gem" ] || gem build flightdeck.gemspec
+  # Release notes: the CHANGELOG section for this version.
+  NOTES=$(mktemp)
+  awk "/^## \[$VERSION\]/{flag=1; next} /^## \[/{flag=0} flag" CHANGELOG.md > "$NOTES"
+  gh release create "$TAG" "flightdeck-$VERSION.gem" \
+    --title "flightdeck $VERSION" \
+    --notes-file "$NOTES"
+  rm -f "$NOTES"
+fi
 
 say "Released flightdeck $VERSION 🎉"
