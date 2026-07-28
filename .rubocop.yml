@@ -1,0 +1,17 @@
+# Rails Omakase, which is the style this codebase is already written in.
+inherit_gem:
+  rubocop-rails-omakase: rubocop.yml
+
+AllCops:
+  TargetRubyVersion: 3.1
+  Exclude:
+    - "app/assets/**/*"
+    - "assets-src/**/*"
+    - "test/dummy/db/schema.rb"
+    - "vendor/**/*"
+    - "tmp/**/*"
+
+# The engine's app/ directory follows Rails' layout, not the gem's lib/ layout,
+# so Zeitwerk-driven paths do not match the default expectations.
+Style/FrozenStringLiteralComment:
+  Enabled: true

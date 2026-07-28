@@ -1,0 +1,52 @@
+#!/usr/bin/env bash
+# Boots the dummy app with a seeded database and authentication disabled, so
+# the dashboard can be looked at in a browser with one command.
+#
+#   bin/demo            # http://127.0.0.1:3000/flightdeck
+#   bin/demo 4000       # on another port
+#   bin/demo --no-seed  # keep whatever is already in the dev database
+set -euo pipefail
+
+cd "$(dirname "$0")/.."
+ROOT="$PWD"
+DUMMY="$ROOT/test/dummy"
+
+PORT=3000
+SEED=1
+for arg in "$@"; do
+  case "$arg" in
+    --no-seed) SEED=0 ;;
+    [0-9]*) PORT="$arg" ;;
+    *) echo "usage: bin/demo [port] [--no-seed]" >&2; exit 1 ;;
+  esac
+done
+
+export RAILS_ENV=development
+# The dashboard refuses to serve unauthenticated requests in every environment;
+# for a local demo we hand it a base controller that lets everyone through,
+# which avoids a browser Basic-auth dialog.
+export FLIGHTDECK_TEST_BASE_CONTROLLER=OpenBaseController
+
+mkdir -p "$DUMMY/storage" "$DUMMY/log" "$DUMMY/tmp"
+
+if [ ! -f "$ROOT/app/assets/flightdeck/manifest.json" ]; then
+  echo "==> building assets"
+  bundle exec rake assets:build
+fi
+
+# Reloading the schema recreates every table, so it must not run on --no-seed —
+# that flag exists to keep the data already in the dev database.
+if [ "$SEED" = "1" ]; then
+  echo "==> loading schema"
+  (cd "$DUMMY" && bin/rails runner 'ActiveRecord::Schema.verbose = false; load Rails.root.join("db/schema.rb").to_s')
+  echo "==> seeding"
+  (cd "$DUMMY" && bin/rails runner 'load Rails.root.join("db/seeds.rb").to_s')
+else
+  (cd "$DUMMY" && bin/rails runner 'ActiveRecord::Schema.verbose = false; load Rails.root.join("db/schema.rb").to_s unless SolidQueue::Job.table_exists?')
+fi
+
+echo
+echo "==> Flightdeck: http://127.0.0.1:$PORT/flightdeck"
+echo "    (authentication disabled for this demo)"
+echo
+exec env -C "$DUMMY" bin/rails server -p "$PORT" -b 127.0.0.1

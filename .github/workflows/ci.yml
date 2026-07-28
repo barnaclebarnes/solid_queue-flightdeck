@@ -1,0 +1,144 @@
+name: CI
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+
+jobs:
+  # The matrix that matters: Flightdeck contains adapter-specific SQL for time
+  # bucketing, and engine-local middleware that only earns its keep when the
+  # host app is API-only. Both axes are exercised on every push.
+  test:
+    name: ${{ matrix.database }} / ${{ matrix.host == 'api_only' && 'API-only host' || 'full host' }}
+    runs-on: ubuntu-latest
+
+    strategy:
+      fail-fast: false
+      matrix:
+        database: [ sqlite3, postgres, mysql ]
+        host: [ full, api_only ]
+
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: flightdeck
+          POSTGRES_PASSWORD: flightdeck
+          POSTGRES_DB: flightdeck_test
+        ports: [ "5432:5432" ]
+        options: >-
+          --health-cmd "pg_isready -U flightdeck"
+          --health-interval 10s --health-timeout 5s --health-retries 10
+
+      mysql:
+        image: mysql:8.4
+        env:
+          MYSQL_ROOT_PASSWORD: flightdeck
+          MYSQL_DATABASE: flightdeck_test
+        ports: [ "3306:3306" ]
+        options: >-
+          --health-cmd "mysqladmin ping -h 127.0.0.1 -uroot -pflightdeck"
+          --health-interval 10s --health-timeout 5s --health-retries 10
+
+    env:
+      RAILS_ENV: test
+      FLIGHTDECK_TEST_API_ONLY: ${{ matrix.host == 'api_only' && '1' || '' }}
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install database client libraries
+        if: matrix.database != 'sqlite3'
+        run: |
+          sudo apt-get update
+          if [ "${{ matrix.database }}" = "postgres" ]; then
+            sudo apt-get install -y libpq-dev
+          else
+            sudo apt-get install -y default-libmysqlclient-dev
+          fi
+
+      - uses: ruby/setup-ruby@v1
+        with:
+          ruby-version: "3.3"
+          bundler-cache: true
+
+      - name: Add the database driver
+        if: matrix.database != 'sqlite3'
+        run: |
+          if [ "${{ matrix.database }}" = "postgres" ]; then
+            bundle add pg --skip-install
+          else
+            bundle add mysql2 --skip-install
+          fi
+          bundle install --jobs 4
+
+      - name: Set DATABASE_URL
+        if: matrix.database != 'sqlite3'
+        run: |
+          if [ "${{ matrix.database }}" = "postgres" ]; then
+            echo "DATABASE_URL=postgres://flightdeck:flightdeck@127.0.0.1:5432/flightdeck_test" >> "$GITHUB_ENV"
+          else
+            echo "DATABASE_URL=mysql2://root:flightdeck@127.0.0.1:3306/flightdeck_test" >> "$GITHUB_ENV"
+          fi
+
+      - run: bundle exec rake test
+
+  # The committed CSS and JS are build artefacts. This job fails if they are
+  # stale, so a view change can never ship without its rebuilt stylesheet.
+  assets:
+    name: assets are fresh
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+      - uses: ruby/setup-ruby@v1
+        with:
+          ruby-version: "3.3"
+          bundler-cache: true
+
+      - name: Verify the committed digests match their contents
+        run: bundle exec rake assets:check
+
+      - name: Rebuild and verify nothing changed
+        run: |
+          bundle exec rake assets:build
+          if ! git diff --quiet -- app/assets/flightdeck; then
+            echo "::error::app/assets/flightdeck is out of date — run 'bundle exec rake assets:build' and commit the result."
+            git --no-pager diff --stat -- app/assets/flightdeck
+            exit 1
+          fi
+
+  system:
+    name: system tests
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+      - uses: ruby/setup-ruby@v1
+        with:
+          ruby-version: "3.3"
+          bundler-cache: true
+
+      - uses: browser-actions/setup-chrome@v1
+        id: chrome
+        with:
+          chrome-version: stable
+
+      - run: bundle exec rake test:system
+        env:
+          RAILS_ENV: test
+          CHROME_BIN: ${{ steps.chrome.outputs.chrome-path }}
+
+  lint:
+    name: rubocop
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+      - uses: ruby/setup-ruby@v1
+        with:
+          ruby-version: "3.3"
+          bundler-cache: true
+
+      - run: bundle exec rubocop --parallel

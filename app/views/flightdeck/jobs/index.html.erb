@@ -1,0 +1,13 @@
+<% content_for :page_title, "Jobs" %>
+
+<%= render "flightdeck/jobs/state_tabs", state_counts: @state_counts %>
+<%= render "flightdeck/jobs/filter_bar", query: @query %>
+
+<%# The frame re-requests the URL it is showing, so state, filters and cursor
+    all survive a poll. %>
+<turbo-frame id="fd-jobs"
+             data-controller="refresh"
+             data-refresh-interval-value="<%= (Flightdeck.config.poll_interval.to_f * 1000).round %>"
+             data-refresh-url-value="<%= fd_current_list_url %>">
+  <%= render "flightdeck/jobs/list", query: @query, rows: @rows, groups: @groups %>
+</turbo-frame>

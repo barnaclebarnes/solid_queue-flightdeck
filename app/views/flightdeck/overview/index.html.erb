@@ -1,0 +1,54 @@
+<% content_for :page_title, "Overview" %>
+
+<turbo-frame id="fd-tiles"
+             target="_top"
+             data-controller="refresh"
+             data-refresh-interval-value="<%= fd_poll_ms %>"
+             data-refresh-url-value="<%= root_path(range: @window.key) %>">
+  <%= render "flightdeck/overview/tiles", overview: @overview %>
+</turbo-frame>
+
+<div class="fd-grid-2">
+  <turbo-frame id="fd-throughput"
+               target="_top"
+               data-controller="refresh"
+               data-refresh-interval-value="<%= fd_chart_poll_ms %>"
+               data-refresh-url-value="<%= root_path(range: @window.key) %>">
+    <%= render "flightdeck/overview/throughput", series: @series, window: @window %>
+  </turbo-frame>
+
+  <turbo-frame id="fd-completion"
+               target="_top"
+               data-controller="refresh"
+               data-refresh-interval-value="<%= fd_chart_poll_ms %>"
+               data-refresh-url-value="<%= root_path(range: @window.key) %>">
+    <%= render "flightdeck/overview/completion", series: @series, window: @window %>
+  </turbo-frame>
+</div>
+
+<div class="fd-grid-2b">
+  <turbo-frame id="fd-overview-queues"
+               target="_top"
+               data-controller="refresh"
+               data-refresh-interval-value="<%= fd_poll_ms %>"
+               data-refresh-url-value="<%= root_path(range: @window.key) %>">
+    <%= render "flightdeck/overview/queues", overview: @overview %>
+  </turbo-frame>
+
+  <turbo-frame id="fd-overview-failures"
+               target="_top"
+               data-controller="refresh"
+               data-refresh-interval-value="<%= fd_poll_ms %>"
+               data-refresh-url-value="<%= root_path(range: @window.key) %>">
+    <%= render "flightdeck/overview/failures", overview: @overview %>
+  </turbo-frame>
+</div>
+
+<turbo-frame id="fd-fleet"
+             target="_top"
+             class="fd-block"
+             data-controller="refresh"
+             data-refresh-interval-value="<%= fd_poll_ms %>"
+             data-refresh-url-value="<%= root_path(range: @window.key) %>">
+  <%= render "flightdeck/overview/fleet", registry: @overview.registry %>
+</turbo-frame>

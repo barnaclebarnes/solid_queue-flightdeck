@@ -1,0 +1,899 @@
+@import "tailwindcss";
+
+@source "../app";
+
+/* --------------------------------------------------------------------------
+   Design tokens (from the approved mockups).
+
+   Each palette is written out exactly once, and the four selector blocks below
+   only ever map a token to a palette entry. That is deliberate: when the same
+   colour list was repeated per selector it was possible for one block to drift
+   — a token missing from :root[data-theme="light"] would leave that one part
+   of the UI dark when the light stamp was applied over an OS dark preference.
+   Mapping blocks make that class of bug structural rather than a matter of
+   care, and test/theme_tokens_test.rb asserts the four blocks stay in step.
+   -------------------------------------------------------------------------- */
+
+:root {
+  --fd-light-bg: #f3f5f7;
+  --fd-light-panel: #ffffff;
+  --fd-light-panel-2: #eef1f4;
+  --fd-light-panel-3: #e6ebef;
+  --fd-light-ink: #10161c;
+  --fd-light-ink-2: #4e5a66;
+  --fd-light-ink-3: #85919d;
+  --fd-light-line: #dce2e8;
+  --fd-light-line-2: #e9edf1;
+  --fd-light-accent: #2a78d6;
+  --fd-light-accent-ink: #1c5cab;
+  --fd-light-accent-wash: rgba(42, 120, 214, .09);
+  --fd-light-good: #0ca30c;
+  --fd-light-good-text: #006300;
+  --fd-light-warn: #fab219;
+  --fd-light-serious: #ec835a;
+  --fd-light-crit: #d03b3b;
+  --fd-light-crit-text: #b02f2f;
+  --fd-light-s1: #2a78d6;
+  --fd-light-s2: #e34948;
+  --fd-light-s3: #1baf7a;
+  --fd-light-grid: #e4e7ea;
+  --fd-light-axis: #c2c9d0;
+  --fd-light-shadow: 0 1px 2px rgba(16, 22, 28, .05), 0 4px 16px rgba(16, 22, 28, .05);
+  --fd-light-led-halo: rgba(12, 163, 12, .18);
+  --fd-light-icon-sun: none;
+  --fd-light-icon-moon: block;
+
+  --fd-dark-bg: #0c0f13;
+  --fd-dark-panel: #14191f;
+  --fd-dark-panel-2: #1a2027;
+  --fd-dark-panel-3: #212932;
+  --fd-dark-ink: #eef2f5;
+  --fd-dark-ink-2: #a3aeb9;
+  --fd-dark-ink-3: #67737f;
+  --fd-dark-line: #232b34;
+  --fd-dark-line-2: #1d242c;
+  --fd-dark-accent: #3987e5;
+  --fd-dark-accent-ink: #6da7ec;
+  --fd-dark-accent-wash: rgba(57, 135, 229, .13);
+  --fd-dark-good: #0ca30c;
+  --fd-dark-good-text: #2fbf2f;
+  --fd-dark-warn: #fab219;
+  --fd-dark-serious: #ec835a;
+  --fd-dark-crit: #d03b3b;
+  --fd-dark-crit-text: #e66767;
+  --fd-dark-s1: #3987e5;
+  --fd-dark-s2: #e66767;
+  --fd-dark-s3: #199e70;
+  --fd-dark-grid: #222a33;
+  --fd-dark-axis: #38424c;
+  --fd-dark-shadow: 0 1px 2px rgba(0, 0, 0, .3), 0 6px 20px rgba(0, 0, 0, .25);
+  --fd-dark-led-halo: rgba(12, 163, 12, .22);
+  --fd-dark-icon-sun: block;
+  --fd-dark-icon-moon: none;
+
+  --font-ui: "Barlow", system-ui, -apple-system, "Segoe UI", sans-serif;
+  --font-mono: "IBM Plex Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
+}
+
+/* Light is the default. */
+:root {
+  color-scheme: light;
+  --bg: var(--fd-light-bg);
+  --panel: var(--fd-light-panel);
+  --panel-2: var(--fd-light-panel-2);
+  --panel-3: var(--fd-light-panel-3);
+  --ink: var(--fd-light-ink);
+  --ink-2: var(--fd-light-ink-2);
+  --ink-3: var(--fd-light-ink-3);
+  --line: var(--fd-light-line);
+  --line-2: var(--fd-light-line-2);
+  --accent: var(--fd-light-accent);
+  --accent-ink: var(--fd-light-accent-ink);
+  --accent-wash: var(--fd-light-accent-wash);
+  --good: var(--fd-light-good);
+  --good-text: var(--fd-light-good-text);
+  --warn: var(--fd-light-warn);
+  --serious: var(--fd-light-serious);
+  --crit: var(--fd-light-crit);
+  --crit-text: var(--fd-light-crit-text);
+  --s1: var(--fd-light-s1);
+  --s2: var(--fd-light-s2);
+  --s3: var(--fd-light-s3);
+  --grid: var(--fd-light-grid);
+  --axis: var(--fd-light-axis);
+  --shadow: var(--fd-light-shadow);
+  --led-halo: var(--fd-light-led-halo);
+  --icon-sun: var(--fd-light-icon-sun);
+  --icon-moon: var(--fd-light-icon-moon);
+}
+
+/* Dark follows the OS preference, unless an explicit light stamp overrides it. */
+@media (prefers-color-scheme: dark) {
+  :root:where(:not([data-theme="light"])) {
+    color-scheme: dark;
+    --bg: var(--fd-dark-bg);
+    --panel: var(--fd-dark-panel);
+    --panel-2: var(--fd-dark-panel-2);
+    --panel-3: var(--fd-dark-panel-3);
+    --ink: var(--fd-dark-ink);
+    --ink-2: var(--fd-dark-ink-2);
+    --ink-3: var(--fd-dark-ink-3);
+    --line: var(--fd-dark-line);
+    --line-2: var(--fd-dark-line-2);
+    --accent: var(--fd-dark-accent);
+    --accent-ink: var(--fd-dark-accent-ink);
+    --accent-wash: var(--fd-dark-accent-wash);
+    --good: var(--fd-dark-good);
+    --good-text: var(--fd-dark-good-text);
+    --warn: var(--fd-dark-warn);
+    --serious: var(--fd-dark-serious);
+    --crit: var(--fd-dark-crit);
+    --crit-text: var(--fd-dark-crit-text);
+    --s1: var(--fd-dark-s1);
+    --s2: var(--fd-dark-s2);
+    --s3: var(--fd-dark-s3);
+    --grid: var(--fd-dark-grid);
+    --axis: var(--fd-dark-axis);
+    --shadow: var(--fd-dark-shadow);
+    --led-halo: var(--fd-dark-led-halo);
+    --icon-sun: var(--fd-dark-icon-sun);
+    --icon-moon: var(--fd-dark-icon-moon);
+  }
+}
+
+/* Explicit stamps from the theme toggle always win. */
+:root[data-theme="dark"] {
+  color-scheme: dark;
+  --bg: var(--fd-dark-bg);
+  --panel: var(--fd-dark-panel);
+  --panel-2: var(--fd-dark-panel-2);
+  --panel-3: var(--fd-dark-panel-3);
+  --ink: var(--fd-dark-ink);
+  --ink-2: var(--fd-dark-ink-2);
+  --ink-3: var(--fd-dark-ink-3);
+  --line: var(--fd-dark-line);
+  --line-2: var(--fd-dark-line-2);
+  --accent: var(--fd-dark-accent);
+  --accent-ink: var(--fd-dark-accent-ink);
+  --accent-wash: var(--fd-dark-accent-wash);
+  --good: var(--fd-dark-good);
+  --good-text: var(--fd-dark-good-text);
+  --warn: var(--fd-dark-warn);
+  --serious: var(--fd-dark-serious);
+  --crit: var(--fd-dark-crit);
+  --crit-text: var(--fd-dark-crit-text);
+  --s1: var(--fd-dark-s1);
+  --s2: var(--fd-dark-s2);
+  --s3: var(--fd-dark-s3);
+  --grid: var(--fd-dark-grid);
+  --axis: var(--fd-dark-axis);
+  --shadow: var(--fd-dark-shadow);
+  --led-halo: var(--fd-dark-led-halo);
+  --icon-sun: var(--fd-dark-icon-sun);
+  --icon-moon: var(--fd-dark-icon-moon);
+}
+
+:root[data-theme="light"] {
+  color-scheme: light;
+  --bg: var(--fd-light-bg);
+  --panel: var(--fd-light-panel);
+  --panel-2: var(--fd-light-panel-2);
+  --panel-3: var(--fd-light-panel-3);
+  --ink: var(--fd-light-ink);
+  --ink-2: var(--fd-light-ink-2);
+  --ink-3: var(--fd-light-ink-3);
+  --line: var(--fd-light-line);
+  --line-2: var(--fd-light-line-2);
+  --accent: var(--fd-light-accent);
+  --accent-ink: var(--fd-light-accent-ink);
+  --accent-wash: var(--fd-light-accent-wash);
+  --good: var(--fd-light-good);
+  --good-text: var(--fd-light-good-text);
+  --warn: var(--fd-light-warn);
+  --serious: var(--fd-light-serious);
+  --crit: var(--fd-light-crit);
+  --crit-text: var(--fd-light-crit-text);
+  --s1: var(--fd-light-s1);
+  --s2: var(--fd-light-s2);
+  --s3: var(--fd-light-s3);
+  --grid: var(--fd-light-grid);
+  --axis: var(--fd-light-axis);
+  --shadow: var(--fd-light-shadow);
+  --led-halo: var(--fd-light-led-halo);
+  --icon-sun: var(--fd-light-icon-sun);
+  --icon-moon: var(--fd-light-icon-moon);
+}
+
+/* Expose the tokens to Tailwind's utility generator, so `bg-panel`,
+   `text-ink-2`, `border-line`, `font-mono` etc. resolve to the same
+   custom properties and therefore theme automatically. */
+@theme inline {
+  --color-bg: var(--bg);
+  --color-panel: var(--panel);
+  --color-panel-2: var(--panel-2);
+  --color-panel-3: var(--panel-3);
+  --color-ink: var(--ink);
+  --color-ink-2: var(--ink-2);
+  --color-ink-3: var(--ink-3);
+  --color-line: var(--line);
+  --color-line-2: var(--line-2);
+  --color-accent: var(--accent);
+  --color-accent-ink: var(--accent-ink);
+  --color-good: var(--good);
+  --color-good-text: var(--good-text);
+  --color-warn: var(--warn);
+  --color-serious: var(--serious);
+  --color-crit: var(--crit);
+  --color-crit-text: var(--crit-text);
+
+  --font-sans: var(--font-ui);
+  --font-mono: var(--font-mono);
+}
+
+/* --------------------------------------------------------------------------
+   App shell
+   -------------------------------------------------------------------------- */
+
+html,
+body {
+  margin: 0;
+}
+
+body {
+  background: var(--bg);
+  color: var(--ink);
+  font: 400 14px/1.45 var(--font-ui);
+  -webkit-font-smoothing: antialiased;
+}
+
+.mono,
+.fd-mono {
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+}
+
+.fd-app {
+  display: grid;
+  grid-template-columns: 216px 1fr;
+  min-height: 100vh;
+}
+
+.fd-side {
+  background: var(--panel-2);
+  border-right: 1px solid var(--line);
+  display: flex;
+  flex-direction: column;
+  padding: 14px 10px;
+}
+
+.fd-brand {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  padding: 4px 8px 14px;
+}
+
+.fd-brand svg {
+  flex: none;
+}
+
+.fd-brand-word {
+  font: 600 13px/1 var(--font-ui);
+  letter-spacing: .22em;
+  color: var(--ink);
+}
+
+.fd-brand-word em {
+  font-style: normal;
+  color: var(--accent-ink);
+}
+
+.fd-nav {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+}
+
+.fd-nav-link {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  padding: 7px 9px;
+  border-radius: 6px;
+  color: var(--ink-2);
+  text-decoration: none;
+  font-size: 13.5px;
+  font-weight: 500;
+  border: 1px solid transparent;
+}
+
+.fd-nav-link svg {
+  flex: none;
+  opacity: .75;
+}
+
+.fd-nav-link:hover {
+  background: var(--panel-3);
+  color: var(--ink);
+}
+
+.fd-nav-link.on {
+  background: var(--panel);
+  color: var(--ink);
+  border-color: var(--line);
+  box-shadow: 0 1px 2px rgba(16, 22, 28, .06);
+}
+
+.fd-nav-link.on svg {
+  opacity: 1;
+  color: var(--accent-ink);
+}
+
+.fd-nav-count {
+  margin-left: auto;
+  font: 400 10.5px/1 var(--font-mono);
+  color: var(--ink-3);
+  font-variant-numeric: tabular-nums;
+}
+
+.fd-nav-section {
+  font: 500 10px/1 var(--font-mono);
+  letter-spacing: .14em;
+  color: var(--ink-3);
+  text-transform: uppercase;
+  padding: 16px 9px 6px;
+}
+
+.fd-side-foot {
+  margin-top: auto;
+  padding: 10px 9px 2px;
+  border-top: 1px solid var(--line);
+  color: var(--ink-3);
+  font: 400 10.5px/1.7 var(--font-mono);
+}
+
+.fd-side-foot b {
+  color: var(--ink-2);
+  font-weight: 500;
+}
+
+.fd-main {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  background: var(--bg);
+}
+
+.fd-topbar {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 10px 20px;
+  background: var(--panel);
+  border-bottom: 1px solid var(--line);
+}
+
+.fd-topbar h2 {
+  font-size: 15px;
+  font-weight: 600;
+  margin: 0;
+  letter-spacing: .01em;
+}
+
+.fd-topbar-right {
+  margin-left: auto;
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+
+.fd-clock {
+  font: 400 11.5px/1 var(--font-mono);
+  color: var(--ink-2);
+  font-variant-numeric: tabular-nums;
+}
+
+.fd-live {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  padding: 5px 10px;
+  border-radius: 999px;
+  border: 1px solid var(--line);
+  background: var(--panel-2);
+  cursor: pointer;
+  font: 500 10.5px/1 var(--font-mono);
+  letter-spacing: .08em;
+  color: var(--ink-2);
+}
+
+.fd-live .fd-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--good);
+  box-shadow: 0 0 0 3px var(--led-halo);
+  animation: fd-pulse 2s infinite;
+}
+
+.fd-live.off .fd-dot {
+  background: var(--ink-3);
+  box-shadow: none;
+  animation: none;
+}
+
+@keyframes fd-pulse {
+  50% {
+    box-shadow: 0 0 0 5px var(--led-halo);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .fd-live .fd-dot {
+    animation: none;
+  }
+}
+
+/* Icon-only, sized to sit quietly beside the LIVE chip. */
+.fd-theme-toggle {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 27px;
+  height: 27px;
+  padding: 0;
+  border-radius: 999px;
+  border: 1px solid var(--line);
+  background: var(--panel-2);
+  color: var(--ink-2);
+  cursor: pointer;
+}
+
+.fd-theme-toggle:hover {
+  color: var(--ink);
+  border-color: var(--axis);
+}
+
+/* The swap rides the theme tokens, so it follows the OS preference and an
+   explicit stamp without repeating either selector chain here. */
+.fd-theme-toggle .fd-icon-sun { display: var(--icon-sun); }
+.fd-theme-toggle .fd-icon-moon { display: var(--icon-moon); }
+
+.fd-content {
+  padding: 18px 20px 28px;
+}
+
+/* --------------------------------------------------------------------------
+   Shared components
+   -------------------------------------------------------------------------- */
+
+.fd-card {
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: 9px;
+  box-shadow: 0 1px 2px rgba(16, 22, 28, .04);
+}
+
+.fd-card-hd {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 11px 14px;
+  border-bottom: 1px solid var(--line-2);
+}
+
+.fd-card-hd h3 {
+  margin: 0;
+  font-size: 13px;
+  font-weight: 600;
+  letter-spacing: .02em;
+}
+
+.fd-card-bd {
+  padding: 14px;
+  color: var(--ink-2);
+}
+
+.fd-card-bd p {
+  margin: 0 0 8px;
+}
+
+.fd-card-bd p:last-child {
+  margin-bottom: 0;
+}
+
+.fd-toasts {
+  position: fixed;
+  right: 16px;
+  bottom: 16px;
+  z-index: 60;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  pointer-events: none;
+}
+
+.fd-toasts > * {
+  pointer-events: auto;
+}
+
+@media (max-width: 860px) {
+  .fd-app {
+    grid-template-columns: 1fr;
+  }
+
+  .fd-side {
+    border-right: 0;
+    border-bottom: 1px solid var(--line);
+  }
+}
+
+/* --------------------------------------------------------------------------
+   Jobs: tabs, filters, tables, pager
+   -------------------------------------------------------------------------- */
+
+.fd-card-hd .sub { color: var(--ink-3); font-size: 12px; }
+.fd-card-hd .right { margin-left: auto; display: flex; gap: 8px; align-items: center; }
+
+.fd-btn {
+  display: inline-flex; align-items: center; gap: 6px; padding: 6px 11px; border-radius: 6px;
+  border: 1px solid var(--line); background: var(--panel); color: var(--ink);
+  font: 500 12.5px/1 var(--font-ui); cursor: pointer; text-decoration: none;
+}
+.fd-btn:hover { background: var(--panel-2); }
+.fd-btn.primary { background: var(--accent); border-color: var(--accent); color: #fff; }
+.fd-btn.primary:hover { filter: brightness(1.07); }
+.fd-btn.danger { color: var(--crit-text); border-color: currentColor; }
+.fd-btn.danger:hover { background: rgba(208, 59, 59, .07); }
+.fd-btn.sm { padding: 4px 8px; font-size: 11.5px; }
+.fd-btn[disabled], .fd-btn.disabled { opacity: .45; pointer-events: none; }
+.fd-btn:focus-visible, .fd-nav-link:focus-visible, .fd-theme-toggle:focus-visible,
+.fd-statetabs a:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+
+.fd-inline-form { display: inline-flex; margin: 0; }
+
+.fd-pill {
+  display: inline-flex; align-items: center; gap: 5px; padding: 2.5px 8px; border-radius: 999px;
+  font: 500 10.5px/1.5 var(--font-mono); letter-spacing: .05em; white-space: nowrap;
+}
+.fd-pill::before { content: ""; width: 6px; height: 6px; border-radius: 50%; background: currentColor; }
+.fd-pill.ready { color: var(--accent-ink); background: var(--accent-wash); }
+.fd-pill.scheduled { color: var(--ink-2); background: var(--panel-3); }
+.fd-pill.progress { color: var(--accent-ink); background: var(--accent-wash); }
+.fd-pill.progress::before { border-radius: 1px; animation: fd-spin 1.4s linear infinite; }
+@keyframes fd-spin { to { transform: rotate(360deg); } }
+@media (prefers-reduced-motion: reduce) { .fd-pill.progress::before { animation: none; } }
+.fd-pill.blocked { color: var(--serious); background: rgba(236, 131, 90, .12); }
+.fd-pill.finished { color: var(--good-text); background: rgba(12, 163, 12, .1); }
+.fd-pill.failed { color: var(--crit-text); background: rgba(208, 59, 59, .1); }
+.fd-pill.paused { color: var(--warn); background: rgba(250, 178, 25, .13); }
+
+.fd-qbadge {
+  display: inline-block; padding: 1.5px 7px; border-radius: 5px; border: 1px solid var(--line);
+  background: var(--panel-2); font: 400 11px/1.5 var(--font-mono); color: var(--ink-2);
+}
+
+table.fd-data { width: 100%; border-collapse: collapse; font-size: 13px; }
+table.fd-data th {
+  text-align: left; font: 500 10.5px/1 var(--font-mono); letter-spacing: .1em;
+  text-transform: uppercase; color: var(--ink-3); padding: 9px 14px;
+  border-bottom: 1px solid var(--line); white-space: nowrap;
+}
+table.fd-data td { padding: 9px 14px; border-bottom: 1px solid var(--line-2); vertical-align: middle; }
+table.fd-data tbody tr:hover { background: var(--panel-2); }
+table.fd-data tbody tr:last-child td { border-bottom: 0; }
+table.fd-data .num {
+  text-align: right; font-family: var(--font-mono); font-size: 12px; font-variant-numeric: tabular-nums;
+}
+table.fd-data .cls { font-weight: 500; color: var(--ink); }
+table.fd-data .cls a { color: inherit; text-decoration: none; }
+table.fd-data .cls a:hover { color: var(--accent-ink); }
+table.fd-data .args {
+  font: 400 11.5px/1.4 var(--font-mono); color: var(--ink-3);
+  max-width: 300px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+table.fd-data .dim { color: var(--ink-3); font-size: 12px; }
+.fd-scroll-x { overflow-x: auto; }
+.fd-empty { padding: 28px 14px; text-align: center; color: var(--ink-3); font-size: 13px; }
+
+.fd-pager {
+  display: flex; align-items: center; gap: 10px; padding: 10px 14px;
+  border-top: 1px solid var(--line-2); color: var(--ink-3); font: 400 11.5px/1 var(--font-mono);
+}
+.fd-pager .right { margin-left: auto; display: flex; gap: 6px; }
+
+.fd-statetabs {
+  display: flex; gap: 2px; border-bottom: 1px solid var(--line); margin-bottom: 14px; overflow-x: auto;
+}
+.fd-statetabs a {
+  padding: 8px 13px 9px; color: var(--ink-2); text-decoration: none; font-weight: 500; font-size: 13px;
+  border-bottom: 2px solid transparent; margin-bottom: -1px; white-space: nowrap;
+  display: inline-flex; gap: 7px; align-items: center;
+}
+.fd-statetabs a .ct {
+  font: 400 10.5px/1.6 var(--font-mono); color: var(--ink-3); background: var(--panel-3);
+  padding: 0 6px; border-radius: 999px; font-variant-numeric: tabular-nums;
+}
+.fd-statetabs a:hover { color: var(--ink); }
+.fd-statetabs a.on { color: var(--accent-ink); border-bottom-color: var(--accent); }
+.fd-statetabs a.on .ct { background: var(--accent-wash); color: var(--accent-ink); }
+
+.fd-filterbar { display: flex; gap: 8px; margin-bottom: 12px; flex-wrap: wrap; align-items: center; }
+.fd-filterbar input[type="search"] { flex: 1; min-width: 200px; }
+.fd-filterbar .spacer { flex: 1; }
+
+input[type="search"], input[type="text"], select {
+  background: var(--panel); border: 1px solid var(--line); border-radius: 6px;
+  padding: 6px 10px; color: var(--ink); font: 400 13px var(--font-ui); min-width: 0;
+}
+input:focus-visible, select:focus-visible { outline: 2px solid var(--accent); outline-offset: 0; }
+input[type="checkbox"] { accent-color: var(--accent); width: 14px; height: 14px; }
+
+.fd-chip {
+  display: inline-flex; align-items: center; gap: 6px; padding: 4.5px 10px; border-radius: 999px;
+  border: 1px solid var(--accent-ink); background: var(--accent-wash); color: var(--accent-ink);
+  font: 500 11.5px/1 var(--font-mono); text-decoration: none;
+}
+.fd-chip u { text-decoration: none; opacity: .65; font-weight: 400; }
+.fd-chip:hover u { opacity: 1; }
+
+/* --------------------------------------------------------------------------
+   Failed jobs: grouping and bulk bar
+   -------------------------------------------------------------------------- */
+
+.fd-bulkbar[hidden] { display: none; }
+.fd-bulkbar {
+  display: flex; align-items: center; gap: 10px; padding: 9px 14px; flex-wrap: wrap;
+  background: var(--accent-wash); border: 1px solid var(--accent-ink); border-radius: 8px;
+  margin-bottom: 12px; font-size: 13px; color: var(--accent-ink);
+}
+.fd-bulkbar .spacer { flex: 1; }
+.fd-group-row td {
+  background: var(--panel-2); font: 500 11px/1.6 var(--font-mono); color: var(--ink-2);
+  letter-spacing: .03em; padding: 6px 14px;
+}
+.fd-group-row a, .fd-group-row button.fd-linkish {
+  color: var(--accent-ink); background: none; border: 0; padding: 0; cursor: pointer;
+  font: inherit; text-decoration: none;
+}
+
+/* --------------------------------------------------------------------------
+   Job detail
+   -------------------------------------------------------------------------- */
+
+.fd-jd-head { display: flex; align-items: flex-start; gap: 12px; margin-bottom: 14px; flex-wrap: wrap; }
+.fd-jd-head .t h2 { margin: 0 0 4px; font-size: 19px; font-weight: 600; letter-spacing: -.01em; }
+.fd-jd-head .t .sub { color: var(--ink-3); font: 400 11.5px/1.5 var(--font-mono); }
+.fd-jd-head .actions { margin-left: auto; display: flex; gap: 8px; }
+.fd-grid-jd { display: grid; grid-template-columns: 1fr 320px; gap: 12px; align-items: start; }
+.fd-stack { display: flex; flex-direction: column; gap: 12px; min-width: 0; }
+
+.fd-meta-grid { display: grid; grid-template-columns: 1fr 1fr; }
+.fd-meta-grid > div { padding: 10px 14px; border-bottom: 1px solid var(--line-2); min-width: 0; }
+.fd-meta-grid > div:nth-child(odd) { border-right: 1px solid var(--line-2); }
+.fd-meta-grid > div:nth-last-child(-n+2) { border-bottom: 0; }
+.fd-meta-grid .k {
+  font: 500 10px/1 var(--font-mono); letter-spacing: .1em; text-transform: uppercase;
+  color: var(--ink-3); margin-bottom: 5px;
+}
+.fd-meta-grid .v { font-size: 13px; font-variant-numeric: tabular-nums; overflow-wrap: anywhere; }
+.fd-meta-grid .v.mono { font-size: 12px; font-family: var(--font-mono); }
+
+pre.fd-code {
+  margin: 0; padding: 12px 14px; overflow-x: auto;
+  font: 400 12px/1.6 var(--font-mono); color: var(--ink-2);
+  background: var(--panel-2); border-radius: 0 0 9px 9px;
+}
+.fd-error-box .msg {
+  padding: 12px 14px; font: 400 12.5px/1.6 var(--font-mono); color: var(--crit-text);
+  border-bottom: 1px solid var(--line-2); overflow-wrap: anywhere;
+}
+.fd-error-box .msg b { font-weight: 500; }
+details.fd-bt summary {
+  cursor: pointer; padding: 9px 14px; font: 500 11px/1 var(--font-mono);
+  letter-spacing: .08em; color: var(--ink-2); list-style: none; text-transform: uppercase;
+}
+details.fd-bt summary::-webkit-details-marker { display: none; }
+details.fd-bt summary::before { content: "\25B8 "; color: var(--ink-3); }
+details.fd-bt[open] summary::before { content: "\25BE "; }
+details.fd-bt pre.fd-code { border-radius: 0 0 9px 9px; max-height: 260px; overflow: auto; }
+details.fd-bt pre.fd-code .app-line {
+  color: var(--ink); background: var(--accent-wash); display: inline-block; width: 100%;
+}
+
+.fd-timeline { padding: 6px 14px 14px; }
+.fd-tl-item { display: grid; grid-template-columns: 14px 1fr; gap: 10px; position: relative; padding: 7px 0; }
+.fd-tl-item::before {
+  content: ""; position: absolute; left: 6px; top: 24px; bottom: -8px; width: 1px; background: var(--line);
+}
+.fd-tl-item:last-child::before { display: none; }
+.fd-tl-dot {
+  width: 13px; height: 13px; border-radius: 50%; border: 3px solid var(--panel);
+  background: var(--axis); margin-top: 3px; box-shadow: 0 0 0 1px var(--line);
+}
+.fd-tl-item.ok .fd-tl-dot { background: var(--good); }
+.fd-tl-item.bad .fd-tl-dot { background: var(--crit); }
+.fd-tl-item.now .fd-tl-dot { background: var(--accent); }
+.fd-tl-body .t { font-weight: 500; font-size: 13px; }
+.fd-tl-body .d { color: var(--ink-3); font: 400 11px/1.6 var(--font-mono); overflow-wrap: anywhere; }
+
+/* --------------------------------------------------------------------------
+   Toasts
+   -------------------------------------------------------------------------- */
+
+.fd-toast {
+  display: flex; align-items: center; gap: 10px; padding: 10px 13px; border-radius: 8px;
+  background: var(--panel); border: 1px solid var(--line); box-shadow: var(--shadow);
+  color: var(--ink); font-size: 13px; max-width: 460px;
+  animation: fd-toast-in .18s ease-out;
+}
+.fd-toast.error { border-color: var(--crit); color: var(--crit-text); }
+.fd-toast .fd-toast-close {
+  margin-left: auto; background: none; border: 0; color: var(--ink-3); cursor: pointer;
+  font: 400 15px/1 var(--font-mono); padding: 0 2px;
+}
+.fd-toast .fd-toast-close:hover { color: var(--ink); }
+@keyframes fd-toast-in { from { opacity: 0; transform: translateY(6px); } }
+@media (prefers-reduced-motion: reduce) { .fd-toast { animation: none; } }
+
+@media (max-width: 1080px) {
+  .fd-grid-jd { grid-template-columns: 1fr; }
+}
+
+/* --------------------------------------------------------------------------
+   Queues
+   -------------------------------------------------------------------------- */
+
+.fd-queue-cards { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; }
+.fd-qcard { padding: 14px; }
+.fd-qcard .top { display: flex; align-items: center; gap: 8px; margin-bottom: 10px; }
+.fd-qcard h3 { margin: 0; font: 500 15px var(--font-ui); overflow-wrap: anywhere; }
+.fd-qcard .top .right { margin-left: auto; }
+.fd-qcard .stats { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 8px; margin-bottom: 10px; }
+.fd-qcard .stats .k {
+  font: 500 9.5px/1 var(--font-mono); letter-spacing: .1em; text-transform: uppercase;
+  color: var(--ink-3); margin-bottom: 4px;
+}
+.fd-qcard .stats .v { font: 500 17px/1.2 var(--font-ui); font-variant-numeric: tabular-nums; }
+.fd-qcard .stats .v small { font-size: 11px; color: var(--ink-3); font-weight: 400; }
+.fd-qcard.paused-card { border-style: dashed; opacity: .92; }
+
+/* Reserved for the Phase 6 sparkline, so cards keep their height until then. */
+.fd-spark-placeholder { height: 30px; }
+
+/* --------------------------------------------------------------------------
+   Processes
+   -------------------------------------------------------------------------- */
+
+.fd-alert {
+  display: flex; gap: 10px; align-items: flex-start; padding: 11px 14px; border-radius: 8px;
+  border: 1px solid var(--crit); background: rgba(208, 59, 59, .06); margin-bottom: 12px; font-size: 13px;
+}
+.fd-alert .ic { color: var(--crit); flex: none; margin-top: 1px; }
+.fd-alert b { font-weight: 600; }
+.fd-alert .right { margin-left: auto; display: flex; gap: 8px; flex: none; }
+
+.fd-hb {
+  display: inline-flex; align-items: center; gap: 7px; font: 400 11.5px/1 var(--font-mono);
+  color: var(--ink-2); font-variant-numeric: tabular-nums;
+}
+.fd-led { width: 7px; height: 7px; border-radius: 50%; flex: none; }
+.fd-led.fresh { background: var(--good); box-shadow: 0 0 0 2.5px var(--led-halo); }
+.fd-led.stale { background: var(--warn); box-shadow: 0 0 0 2.5px rgba(250, 178, 25, .18); }
+.fd-led.dead { background: var(--crit); box-shadow: 0 0 0 2.5px rgba(208, 59, 59, .16); }
+
+table.fd-data tr.fd-row-danger td { background: rgba(208, 59, 59, .05); }
+table.fd-data td.fd-indent { padding-left: 28px; }
+
+/* --------------------------------------------------------------------------
+   Recurring
+   -------------------------------------------------------------------------- */
+
+.fd-cron { font: 400 11.5px/1.5 var(--font-mono); color: var(--ink-2); }
+.fd-cron small { display: block; color: var(--ink-3); font-size: 10.5px; }
+
+@media (max-width: 1080px) {
+  .fd-queue-cards { grid-template-columns: 1fr; }
+}
+
+/* --------------------------------------------------------------------------
+   Overview: tiles
+   -------------------------------------------------------------------------- */
+
+.fd-tiles { display: grid; grid-template-columns: repeat(6, 1fr); gap: 10px; margin-bottom: 14px; }
+.fd-tile { padding: 12px 14px; position: relative; min-width: 0; }
+.fd-tile .lbl {
+  font: 500 10px/1 var(--font-mono); letter-spacing: .12em; text-transform: uppercase;
+  color: var(--ink-3); display: flex; align-items: center; gap: 6px;
+}
+.fd-tile .val {
+  font: 500 26px/1.2 var(--font-ui); margin-top: 6px; font-variant-numeric: tabular-nums;
+  letter-spacing: -.01em; overflow-wrap: anywhere;
+}
+.fd-tile .val small { font-size: 14px; color: var(--ink-3); font-weight: 400; margin-left: 2px; }
+.fd-tile .delta {
+  font: 400 11px/1.35 var(--font-mono); margin-top: 5px; display: inline-flex; gap: 4px; align-items: baseline;
+}
+.fd-tile .delta.up { color: var(--good-text); }
+.fd-tile .delta.down { color: var(--crit-text); }
+.fd-tile .delta.flat { color: var(--ink-3); }
+
+.fd-grid-2 { display: grid; grid-template-columns: 1.6fr 1fr; gap: 12px; margin-bottom: 14px; }
+.fd-grid-2b { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+.fd-block { display: block; margin-top: 12px; }
+
+/* --------------------------------------------------------------------------
+   Charts
+   -------------------------------------------------------------------------- */
+
+.fd-chart-body { padding: 10px 14px 12px; }
+.fd-chart { display: block; width: 100%; height: auto; }
+.fd-chart-grid { stroke: var(--grid); stroke-width: 1; }
+.fd-chart-axis { stroke: var(--axis); stroke-width: 1; }
+.fd-chart-label { fill: var(--ink-3); font-family: var(--font-mono); font-size: 10px; }
+.fd-chart-bar-succeeded { fill: var(--s1); }
+.fd-chart-bar-failed { fill: var(--s2); }
+.fd-chart-line { fill: none; stroke: var(--s3); stroke-width: 2; stroke-linejoin: round; stroke-linecap: round; }
+.fd-chart-area { fill: var(--s3); opacity: .12; stroke: none; }
+.fd-chart-dot { fill: var(--s3); stroke: var(--panel); stroke-width: 2; }
+.fd-chart-note {
+  padding: 0 14px 12px; color: var(--ink-3); font: 400 11px/1.5 var(--font-mono);
+}
+
+.fd-legend { display: flex; gap: 14px; font-size: 11.5px; color: var(--ink-2); }
+.fd-legend i {
+  width: 9px; height: 9px; border-radius: 2.5px; display: inline-block; margin-right: 5px; vertical-align: -1px;
+}
+.fd-swatch-s1 { background: var(--s1); }
+.fd-swatch-s2 { background: var(--s2); }
+.fd-swatch-s3 { background: var(--s3); }
+
+.fd-seg {
+  display: inline-flex; border: 1px solid var(--line); border-radius: 7px; overflow: hidden; background: var(--panel);
+}
+.fd-seg a {
+  border: 0; background: transparent; padding: 5px 11px; text-decoration: none;
+  font: 500 11px/1 var(--font-mono); color: var(--ink-2); letter-spacing: .04em;
+}
+.fd-seg a + a { border-left: 1px solid var(--line); }
+.fd-seg a.on { background: var(--accent-wash); color: var(--accent-ink); }
+.fd-seg a:hover { color: var(--ink); }
+
+.fd-sparkline { display: block; width: 100%; height: 30px; }
+.fd-spark-line { fill: none; stroke: var(--s1); stroke-width: 1.5; }
+.fd-spark-area { fill: var(--s1); opacity: .14; stroke: none; }
+
+.fd-depth-bar { height: 4px; border-radius: 2px; background: var(--panel-3); overflow: hidden; min-width: 70px; }
+.fd-depth-bar i { display: block; height: 100%; border-radius: 2px; background: var(--accent); }
+
+/* --------------------------------------------------------------------------
+   Fleet strip
+   -------------------------------------------------------------------------- */
+
+.fd-health-strip { display: flex; gap: 8px; flex-wrap: wrap; padding: 12px 14px; }
+.fd-proc-chip {
+  display: inline-flex; align-items: center; gap: 7px; padding: 5px 10px; border: 1px solid var(--line);
+  border-radius: 7px; background: var(--panel-2); font: 400 11px/1.5 var(--font-mono); color: var(--ink-2);
+}
+
+@media (max-width: 1080px) {
+  .fd-tiles { grid-template-columns: repeat(3, 1fr); }
+  .fd-grid-2, .fd-grid-2b { grid-template-columns: 1fr; }
+}
+@media (max-width: 640px) {
+  .fd-tiles { grid-template-columns: repeat(2, 1fr); }
+}
+
+/* --------------------------------------------------------------------------
+   Topbar clock and LIVE switch
+   -------------------------------------------------------------------------- */
+
+.fd-live .fd-dot { flex: none; }
+.fd-live[aria-pressed="false"] .fd-dot,
+.fd-live.off .fd-dot { background: var(--ink-3); box-shadow: none; animation: none; }
+
+/* A count that is reporting a problem rather than just a total. */
+.fd-nav-count.alert { color: var(--crit-text); }
+
+/* Keeps the bulk-action buttons together when the filter bar wraps. */
+.fd-filterbar-actions { display: flex; gap: 8px; flex: none; }

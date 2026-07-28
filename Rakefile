@@ -1,0 +1,179 @@
+# frozen_string_literal: true
+
+require "rake/testtask"
+require "digest"
+require "json"
+require "base64"
+require "fileutils"
+require "tmpdir"
+
+ROOT = File.expand_path(__dir__)
+SRC = File.join(ROOT, "assets-src")
+OUT = File.join(ROOT, "app", "assets", "flightdeck")
+MANIFEST = File.join(OUT, "manifest.json")
+
+LOGICAL = {
+  "flightdeck.css" => "text/css; charset=utf-8",
+  "flightdeck.js" => "text/javascript; charset=utf-8"
+}.freeze
+
+Dir[File.join(__dir__, "tasks", "*.rake")].sort.each { |task| load task }
+
+Rake::TestTask.new(:test) do |t|
+  t.libs << "test"
+  t.libs << "lib"
+  # System tests are a separate task: they need a browser and are far slower.
+  t.test_files = FileList["test/**/*_test.rb"].exclude("test/system/**/*")
+  t.warning = false
+  t.verbose = false
+end
+
+namespace :test do
+  desc "Set up the environment system tests need, before the app boots"
+  task :system_env do
+    # A browser cannot dismiss an HTTP Basic dialog, so system tests run against
+    # a host that supplies its own base controller. This must be in the
+    # environment before Zeitwerk loads the engine's controllers.
+    ENV["FLIGHTDECK_TEST_BASE_CONTROLLER"] ||= "OpenBaseController"
+  end
+
+  desc "Run browser system tests (headless Chrome; skipped when none is installed)"
+  Rake::TestTask.new(system: :system_env) do |t|
+    t.libs << "test"
+    t.libs << "lib"
+    t.test_files = FileList["test/system/**/*_test.rb"]
+    t.warning = false
+    t.verbose = false
+  end
+end
+
+task default: %i[test]
+
+namespace :assets do
+  desc "Build flightdeck.css + flightdeck.js and the digested manifest"
+  task :build do
+    FileUtils.mkdir_p(OUT)
+
+    css = build_css
+    js = build_js
+
+    manifest = {}
+    { "flightdeck.css" => css, "flightdeck.js" => js }.each do |logical, content|
+      digest = Digest::SHA256.hexdigest(content)
+      short = digest[0, 12]
+      file = logical.sub(/\Aflightdeck/, "flightdeck-#{short}")
+
+      File.binwrite(File.join(OUT, file), content)
+      manifest[logical] = {
+        "file" => file,
+        "digest" => short,
+        "sha256" => digest,
+        "content_type" => LOGICAL.fetch(logical),
+        "size" => content.bytesize
+      }
+    end
+
+    File.write(MANIFEST, JSON.pretty_generate(manifest) + "\n")
+    prune_stale(manifest)
+
+    manifest.each { |logical, entry| puts "#{logical} -> #{entry["file"]} (#{entry["size"]} bytes)" }
+  end
+
+  desc "Fail if the committed assets do not match assets-src (run before release)"
+  task :check do
+    unless File.file?(MANIFEST)
+      abort "app/assets/flightdeck/manifest.json is missing. Run `rake assets:build`."
+    end
+
+    manifest = JSON.parse(File.read(MANIFEST))
+    problems = []
+
+    manifest.each do |logical, entry|
+      path = File.join(OUT, entry["file"])
+      if !File.file?(path)
+        problems << "#{logical}: #{entry["file"]} is missing"
+        next
+      end
+
+      actual = Digest::SHA256.hexdigest(File.binread(path))
+      if actual != entry["sha256"]
+        problems << "#{logical}: #{entry["file"]} contents do not match the manifest digest"
+      end
+      if entry["digest"] != actual[0, 12]
+        problems << "#{logical}: digested filename does not match its contents"
+      end
+    end
+
+    LOGICAL.each_key do |logical|
+      problems << "#{logical}: not present in the manifest" unless manifest.key?(logical)
+    end
+
+    abort "Stale assets:\n  " + problems.join("\n  ") if problems.any?
+
+    puts "assets are fresh (#{manifest.keys.join(", ")})"
+  end
+end
+
+desc "Alias for assets:build"
+task assets: "assets:build"
+
+def build_css
+  require "tailwindcss/ruby"
+
+  input = File.join(SRC, "input.css")
+  tmp = File.join(Dir.tmpdir, "flightdeck-#{Process.pid}.css")
+
+  command = [ Tailwindcss::Ruby.executable, "--input", input, "--output", tmp, "--minify" ]
+  Dir.chdir(ROOT) do
+    system(*command, exception: true)
+  end
+
+  css = File.read(tmp)
+  FileUtils.rm_f(tmp)
+
+  font_face_css + css
+end
+
+def font_face_css
+  index_path = File.join(SRC, "fonts", "fonts.json")
+  return "" unless File.file?(index_path)
+
+  JSON.parse(File.read(index_path)).map do |file, meta|
+    bytes = File.binread(File.join(SRC, "fonts", file))
+    data = Base64.strict_encode64(bytes)
+    "@font-face{font-family:'#{meta["family"]}';font-style:normal;" \
+      "font-weight:#{meta["weight"]};font-display:swap;" \
+      "src:url(data:font/woff2;base64,#{data}) format('woff2')}"
+  end.join + "\n"
+end
+
+def build_js
+  parts = []
+  parts << File.read(File.join(SRC, "vendor", "turbo.min.js"))
+  parts << File.read(File.join(SRC, "vendor", "stimulus.umd.min.js"))
+
+  Dir[File.join(SRC, "controllers", "*.js")].sort.each { |path| parts << File.read(path) }
+
+  boot = File.read(File.join(SRC, "boot.js"))
+  boot = boot.sub("__FLIGHTDECK_VERSION__", flightdeck_version)
+  parts << boot
+
+  banner = "/* Flightdeck #{flightdeck_version} — bundled @hotwired/turbo + @hotwired/stimulus. " \
+           "Generated by `rake assets:build`; do not edit. */\n"
+
+  banner + "(function(){\n" + parts.join("\n;\n") + "\n})();\n"
+end
+
+def flightdeck_version
+  @flightdeck_version ||= begin
+    require File.join(ROOT, "lib", "flightdeck", "version")
+    Flightdeck::VERSION
+  end
+end
+
+def prune_stale(manifest)
+  keep = manifest.values.map { |entry| entry["file"] } + [ "manifest.json" ]
+  Dir[File.join(OUT, "flightdeck-*.{css,js}")].each do |path|
+    FileUtils.rm_f(path) unless keep.include?(File.basename(path))
+  end
+end

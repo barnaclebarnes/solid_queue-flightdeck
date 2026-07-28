@@ -1,0 +1,34 @@
+<%
+  # SQLite by default, so a fresh checkout needs nothing installed. CI runs the
+  # same suite against PostgreSQL and MySQL by setting DATABASE_URL — that is
+  # what exercises the adapter-specific bucketing SQL in Flightdeck::Metrics.
+  # Plain Ruby: this file is rendered early enough that ActiveSupport's core
+  # extensions cannot be relied on.
+  url = ENV["DATABASE_URL"].to_s.empty? ? nil : ENV["DATABASE_URL"]
+%>
+default: &default
+  pool: <%= ENV.fetch("RAILS_MAX_THREADS", 5) %>
+<% if url %>
+  url: <%= url %>
+<% else %>
+  adapter: sqlite3
+  timeout: 5000
+<% end %>
+
+development:
+  <<: *default
+<% unless url %>
+  database: storage/development.sqlite3
+<% end %>
+
+test:
+  <<: *default
+<% unless url %>
+  database: storage/test.sqlite3
+<% end %>
+
+production:
+  <<: *default
+<% unless url %>
+  database: storage/production.sqlite3
+<% end %>

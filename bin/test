@@ -1,0 +1,13 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+cd "$(dirname "$0")/.."
+
+echo "==> assets:check"
+bundle exec rake assets:check
+
+echo "==> test (full host)"
+bundle exec rake test
+
+echo "==> test (API-only host)"
+FLIGHTDECK_TEST_API_ONLY=1 bundle exec rake test
