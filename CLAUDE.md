@@ -18,7 +18,7 @@ bundle exec rake assets:check                     # verify committed digests mat
 bundle exec rubocop
 bin/demo [port] [--no-seed]                       # seeded dummy server, auth off, at /flightdeck
 bundle exec rake screenshots                      # regenerate docs/screenshots (headless Chrome)
-bin/release [VERSION] [--dry-run]                 # full release: verify → changelog rollover + version bump → assets → push → wait for CI → tag + gem push + GitHub release
+bin/release [VERSION] [--dry-run] [--skip-ci]     # full release: verify → changelog rollover + version bump → assets → push → wait for CI → tag + gem push + GitHub release (--skip-ci pushes but publishes without waiting for CI)
 ```
 
 Any change to a view, Stimulus controller, or CSS **requires `rake assets:build` and committing the rebuilt files** — CI's assets job rebuilds and fails on drift. A version bump also changes the built JS (its banner embeds `Flightdeck::VERSION`), so it too needs a rebuild; `bin/release` automates this.

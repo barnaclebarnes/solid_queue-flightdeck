@@ -15,12 +15,19 @@
 #   6. build       — bundle install, rake assets:build, rake assets:check
 #   7. commit      — one "Release vX.Y.Z" commit: changelog, version, assets, lock
 #   8. push + CI   — push main, then wait for GitHub Actions to go green
+#                    (--skip-ci pushes but does not wait)
 #   9. publish     — tag vX.Y.Z, push the tag, gem build, gem push, GitHub release
 #
 # The order is deliberate: the suite runs before any file is modified, and
 # nothing irreversible (tag, rubygems, release) happens until CI has passed on
 # the exact commit being released. RubyGems versions can never be reused, so the
 # publish step asks for confirmation first.
+#
+# --skip-ci drops that CI gate: it still pushes main, but publishes without
+# waiting for the run to finish. Only reach for it when CI is broken or too slow
+# to wait on and you have verified the commit yourself — the local suite in
+# step 3 does not cover the database matrix (3 adapters × 2 host modes) that CI
+# does, and a bad gem version cannot be unpublished.
 #
 # RESUMING. Steps 4-7 can only run once: they consume [Unreleased] and bump the
 # version. So if a run stops after the release commit exists — CI went red, you
@@ -36,6 +43,7 @@
 #   bin/release 0.6.0              # release 0.6.0
 #   bin/release 0.6.0 --dry-run    # preflight + version checks + verify, then stop
 #   bin/release --dry-run          # report the current version, verify, then stop
+#   bin/release 0.6.0 --skip-ci    # release 0.6.0 without waiting for CI
 #
 # A dry run never modifies a file, never commits, and never prompts (without a
 # VERSION argument it skips the version prompt entirely).
@@ -47,11 +55,13 @@ say()  { printf '\n\033[1m==> %s\033[0m\n' "$*"; }
 fail() { printf '\033[31merror: %s\033[0m\n' "$*" >&2; exit 1; }
 
 DRY_RUN=0
+SKIP_CI=0
 VERSION_ARG=""
 for arg in "$@"; do
   case "$arg" in
     --dry-run) DRY_RUN=1 ;;
-    -*) fail "unknown option $arg (usage: bin/release [VERSION] [--dry-run])" ;;
+    --skip-ci) SKIP_CI=1 ;;
+    -*) fail "unknown option $arg (usage: bin/release [VERSION] [--dry-run] [--skip-ci])" ;;
     *)
       if [ -n "$VERSION_ARG" ]; then
         fail "unexpected argument $arg (version already given as $VERSION_ARG)"
@@ -125,7 +135,11 @@ before releasing $VERSION_ARG. To abandon it instead, drop the Release $CURRENT_
   printf 'commit, and CI is the gate on exactly what gets published.\n'
 
   if [ "$DRY_RUN" = 1 ]; then
-    say "Dry run complete — resume would push (if needed), wait for CI, then publish $VERSION"
+    if [ "$SKIP_CI" = 1 ]; then
+      say "Dry run complete — resume would push (if needed), then publish $VERSION without waiting for CI"
+    else
+      say "Dry run complete — resume would push (if needed), wait for CI, then publish $VERSION"
+    fi
     exit 0
   fi
 elif [ -n "$VERSION_ARG" ]; then
@@ -263,27 +277,34 @@ else
   git push origin main
 fi
 
-SHA=$(git rev-parse HEAD)
-say "Waiting for CI on $(git rev-parse --short HEAD)"
-# Match the run to this exact commit: on a resume the newest run on main may be
-# an older one, and right after a push there may be no run registered yet.
-RUN_ID=""
-for _ in $(seq 1 30); do
-  RUN_ID=$(gh run list --branch main --limit 20 --json databaseId,headSha \
-             --jq "[.[] | select(.headSha == \"$SHA\")] | .[0].databaseId // empty")
-  [ -n "$RUN_ID" ] && break
-  sleep 5
-done
-[ -n "$RUN_ID" ] || fail "no GitHub Actions run appeared for $SHA within 150s — check 'gh run list' and re-run this script to resume"
+if [ "$SKIP_CI" = 1 ]; then
+  say "Skipping the CI wait (--skip-ci)"
+  CI_STATUS="CI was not waited for (--skip-ci)."
+else
+  SHA=$(git rev-parse HEAD)
+  say "Waiting for CI on $(git rev-parse --short HEAD)"
+  # Match the run to this exact commit: on a resume the newest run on main may be
+  # an older one, and right after a push there may be no run registered yet.
+  RUN_ID=""
+  for _ in $(seq 1 30); do
+    RUN_ID=$(gh run list --branch main --limit 20 --json databaseId,headSha \
+               --jq "[.[] | select(.headSha == \"$SHA\")] | .[0].databaseId // empty")
+    [ -n "$RUN_ID" ] && break
+    sleep 5
+  done
+  [ -n "$RUN_ID" ] || fail "no GitHub Actions run appeared for $SHA within 150s — check 'gh run list' and re-run this script to resume"
 
-gh run watch "$RUN_ID" --exit-status || fail "CI failed — nothing was tagged or published.
+  gh run watch "$RUN_ID" --exit-status || fail "CI failed — nothing was tagged or published.
 The Release $TAG commit is already on main. Fix forward with a follow-up commit
 and re-run this script: it will detect the unfinished release of $VERSION and
 resume from the push/CI/publish step."
 
+  CI_STATUS="CI is green."
+fi
+
 # ---- 9. publish ------------------------------------------------------------
 # Every step here checks before acting, so an interrupted publish can be resumed.
-printf '\nCI is green. Publish %s to RubyGems and tag %s? This cannot be undone. [y/N] ' "$VERSION" "$TAG"
+printf '\n%s Publish %s to RubyGems and tag %s? This cannot be undone. [y/N] ' "$CI_STATUS" "$VERSION" "$TAG"
 read -r answer
 [ "$answer" = "y" ] || [ "$answer" = "Y" ] || fail "aborted before publishing — re-run this script to resume"
 
