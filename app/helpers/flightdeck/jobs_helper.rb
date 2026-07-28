@@ -54,16 +54,7 @@ module Flightdeck
     end
 
     def fd_duration(seconds)
-      return "—" if seconds.nil?
-
-      seconds = seconds.to_f.abs
-      case seconds
-      when 0...1 then "#{(seconds * 1000).round}ms"
-      when 1...60 then "#{seconds.round(1)}s"
-      when 60...3600 then "#{(seconds / 60).round}m"
-      when 3600...86_400 then "#{(seconds / 3600).round(1)}h"
-      else "#{(seconds / 86_400).round(1)}d"
-      end
+      seconds.nil? ? "—" : Flightdeck::Duration.humanize(seconds)
     end
 
     def fd_ago(time)
@@ -102,10 +93,6 @@ module Flightdeck
       Flightdeck::ArgumentsPreview.format(preview, length: length)
     end
 
-    def fd_jobs_url(overrides = {})
-      jobs_path(list_filters.merge(state: params[:state].presence).compact.merge(overrides))
-    end
-
     # The frame refreshes itself by re-requesting the URL it is showing, so
     # filters, state tab and cursor all survive a poll.
     def fd_current_list_url
@@ -121,12 +108,6 @@ module Flightdeck
 
       text = grouped ? summary.message.presence || summary.exception_class : summary.to_s
       text.to_s
-    end
-
-    # URL the refreshed frame should poll after an action, rebuilt from the
-    # filters the action carried rather than from the POST's own path.
-    def fd_refreshed_list_url
-      jobs_path(list_filters.merge(state: @refreshed_state == :all ? nil : @refreshed_state).compact)
     end
 
     def fd_toast_level_class(level)
