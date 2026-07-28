@@ -4,6 +4,7 @@ module Flightdeck
   class Configuration
     attr_accessor :base_controller_class,
                   :http_basic,
+                  :skip_authentication,
                   :poll_interval,
                   :chart_poll_interval,
                   :per_page,
@@ -16,6 +17,7 @@ module Flightdeck
     def initialize
       @base_controller_class = nil
       @http_basic = nil
+      @skip_authentication = false
       @poll_interval = 5.seconds
       @chart_poll_interval = 30.seconds
       @per_page = 25

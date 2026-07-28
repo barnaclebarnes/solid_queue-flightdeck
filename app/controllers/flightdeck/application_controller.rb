@@ -33,7 +33,16 @@ module Flightdeck
              config.base_controller_class = "Admin::BaseController"
            end
 
-      Flightdeck never serves unauthenticated requests, in any environment.
+      5. If something upstream (a routing constraint, VPN, or reverse proxy)
+         already guards this mount and you accept the risk, turn Flightdeck's
+         gate off entirely:
+
+           Flightdeck.configure do |config|
+             config.skip_authentication = true
+           end
+
+      Flightdeck never serves unauthenticated requests, in any environment,
+      unless it is explicitly told to with skip_authentication.
     TEXT
 
     protect_from_forgery with: :exception if respond_to?(:protect_from_forgery)
@@ -73,7 +82,12 @@ module Flightdeck
         }.compact
       end
 
+      # Read per request, like the rest of the auth config, so nothing is
+      # resolved at boot. `skip_authentication` is the explicit opt-out for
+      # deployments that gate the mount upstream — a routing constraint, a VPN,
+      # a reverse proxy — and it wins over every other setting here.
       def authenticate_flightdeck!
+        return if Flightdeck.config.skip_authentication
         return if self.class.host_authenticated?
 
         credentials = Flightdeck.config.resolve_http_basic

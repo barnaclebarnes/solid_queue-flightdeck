@@ -23,16 +23,19 @@ module Flightdeck
       @__flightdeck_env = BASIC_ENV_KEYS.to_h { |key| [ key, ENV[key] ] }
       @__flightdeck_http_basic = Flightdeck.config.http_basic
       @__flightdeck_base_controller = Flightdeck.config.base_controller_class
+      @__flightdeck_skip_authentication = Flightdeck.config.skip_authentication
 
       BASIC_ENV_KEYS.each { |key| ENV.delete(key) }
       Flightdeck.config.http_basic = nil
       Flightdeck.config.base_controller_class = nil
+      Flightdeck.config.skip_authentication = false
     end
 
     def after_teardown
       @__flightdeck_env.each { |key, value| value.nil? ? ENV.delete(key) : ENV[key] = value }
       Flightdeck.config.http_basic = @__flightdeck_http_basic
       Flightdeck.config.base_controller_class = @__flightdeck_base_controller
+      Flightdeck.config.skip_authentication = @__flightdeck_skip_authentication
       super
     end
 

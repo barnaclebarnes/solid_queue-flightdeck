@@ -10,6 +10,7 @@ class Flightdeck::ConfigurationTest < ActiveSupport::TestCase
   test "ships the documented defaults" do
     assert_nil @config.base_controller_class
     assert_nil @config.http_basic
+    assert_equal false, @config.skip_authentication
     assert_equal 5.seconds, @config.poll_interval
     assert_equal 30.seconds, @config.chart_poll_interval
     assert_equal 25, @config.per_page

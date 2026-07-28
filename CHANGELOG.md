@@ -6,6 +6,11 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Added
+
+- `config.skip_authentication` to serve the dashboard without any
+  authentication, for mounts guarded upstream (routing constraint, VPN, proxy).
+
 ## [0.5.0] — unreleased
 
 First release.

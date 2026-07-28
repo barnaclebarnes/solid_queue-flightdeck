@@ -11,6 +11,27 @@ class Flightdeck::AuthenticationTest < ActionDispatch::IntegrationTest
     assert_includes response.body, "FLIGHTDECK_USERNAME"
     assert_includes response.body, "base_controller_class"
     assert_includes response.body, "credentials:edit"
+    assert_includes response.body, "skip_authentication"
+  end
+
+  test "skip_authentication serves the dashboard without credentials" do
+    Flightdeck.config.skip_authentication = true
+
+    get "/flightdeck"
+
+    assert_response :success
+    assert_includes response.body, "Flightdeck"
+  end
+
+  test "skip_authentication wins over configured HTTP Basic credentials" do
+    with_env_basic_auth do
+      Flightdeck.config.skip_authentication = true
+
+      get "/flightdeck"
+
+      assert_response :success
+      assert_includes response.body, "Flightdeck"
+    end
   end
 
   test "no credentials with HTTP Basic configured challenges the client" do

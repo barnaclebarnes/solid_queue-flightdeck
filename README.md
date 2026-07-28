@@ -103,12 +103,28 @@ request, never memoized at boot.
 In **API-only** apps there is no host session for Devise to use, so use
 Flightdeck's own HTTP Basic there.
 
+### Disabling authentication entirely
+
+```ruby
+# config/initializers/flightdeck.rb
+Flightdeck.configure do |config|
+  config.skip_authentication = true
+end
+```
+
+This serves the dashboard — which can retry, discard and delete jobs — to
+anyone who can reach the mount. It exists for deployments where something
+upstream already guards it: a routing constraint, a VPN, a reverse proxy. The
+routing-constraint caveat above still applies unless you set this: without it,
+the engine answers 401 behind your constraint.
+
 ## Configuration
 
 | Option | Default | Purpose |
 | --- | --- | --- |
 | `base_controller_class` | `nil` | Controller (a String) to inherit from, to reuse your app's authentication. |
 | `http_basic` | `nil` | `{ username:, password: }` or a callable. Falls back to `ENV`, then credentials. |
+| `skip_authentication` | `false` | Serve without any authentication. For mounts guarded upstream (routing constraint, VPN, proxy). |
 | `poll_interval` | `5.seconds` | Refresh rate for list and stat panels. |
 | `chart_poll_interval` | `30.seconds` | Refresh rate for charts. |
 | `per_page` | `25` | Rows per page in job lists. |
