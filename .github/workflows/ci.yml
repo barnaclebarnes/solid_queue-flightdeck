@@ -128,7 +128,7 @@ jobs:
           ruby-version: "3.3"
           bundler-cache: true
 
-      - uses: browser-actions/setup-chrome@v1
+      - uses: browser-actions/setup-chrome@v2
         id: chrome
         with:
           chrome-version: stable
