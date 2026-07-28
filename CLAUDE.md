@@ -23,6 +23,8 @@ bin/release [VERSION] [--dry-run]                 # full release: verify → cha
 
 Any change to a view, Stimulus controller, or CSS **requires `rake assets:build` and committing the rebuilt files** — CI's assets job rebuilds and fails on drift. A version bump also changes the built JS (its banner embeds `Flightdeck::VERSION`), so it too needs a rebuild; `bin/release` automates this.
 
+**Never bump the version on a feature branch.** `lib/flightdeck/version.rb` (and the version line in `CHANGELOG.md`) is owned by `bin/release` — it is the only thing that may change it. Feature branches add changelog entries under `[Unreleased]` and leave the version alone.
+
 Maintain `CHANGELOG.md` for user-visible changes — brief and simple: one line per change under `[Unreleased]` in the appropriate Keep a Changelog section (Added/Changed/Fixed/Security), no essays. Internal-only changes (tests, CI, refactors) don't need an entry.
 
 ## Architecture
