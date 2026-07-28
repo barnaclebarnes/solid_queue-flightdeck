@@ -162,7 +162,7 @@ if [ "$RESUME" = 0 ] && [ -n "$VERSION" ]; then
   TAG="v$VERSION"
   git rev-parse -q --verify "refs/tags/$TAG" >/dev/null && fail "$TAG already exists"
 
-  say "Releasing flightdeck $VERSION"
+  say "Releasing solid_queue-flightdeck $VERSION"
 fi
 
 if [ "$RESUME" = 0 ]; then
@@ -312,7 +312,7 @@ if git rev-parse -q --verify "refs/tags/$TAG" >/dev/null; then
   say "Tag $TAG already exists locally"
 else
   say "Tagging $TAG"
-  git tag -a "$TAG" -m "flightdeck $VERSION"
+  git tag -a "$TAG" -m "solid_queue-flightdeck $VERSION"
 fi
 if [ -z "$(git ls-remote --tags origin "refs/tags/$TAG")" ]; then
   git push origin "$TAG"
@@ -320,27 +320,27 @@ else
   say "Tag $TAG is already on origin"
 fi
 
-if gem list --remote --exact --all flightdeck 2>/dev/null | grep -qE "[ (]$(escape_dots "$VERSION")[,)]"; then
-  say "flightdeck $VERSION is already on RubyGems — skipping the gem push"
+if gem list --remote --exact --all solid_queue-flightdeck 2>/dev/null | grep -qE "[ (]$(escape_dots "$VERSION")[,)]"; then
+  say "solid_queue-flightdeck $VERSION is already on RubyGems — skipping the gem push"
 else
   say "Building and pushing the gem"
-  rm -f "flightdeck-$VERSION.gem"
-  gem build flightdeck.gemspec
-  gem push "flightdeck-$VERSION.gem"
+  rm -f "solid_queue-flightdeck-$VERSION.gem"
+  gem build solid_queue-flightdeck.gemspec
+  gem push "solid_queue-flightdeck-$VERSION.gem"
 fi
 
 if gh release view "$TAG" >/dev/null 2>&1; then
   say "GitHub release $TAG already exists"
 else
   say "Creating the GitHub release"
-  [ -f "flightdeck-$VERSION.gem" ] || gem build flightdeck.gemspec
+  [ -f "solid_queue-flightdeck-$VERSION.gem" ] || gem build solid_queue-flightdeck.gemspec
   # Release notes: the CHANGELOG section for this version.
   NOTES=$(mktemp)
   awk "/^## \[$VERSION\]/{flag=1; next} /^## \[/{flag=0} flag" CHANGELOG.md > "$NOTES"
-  gh release create "$TAG" "flightdeck-$VERSION.gem" \
-    --title "flightdeck $VERSION" \
+  gh release create "$TAG" "solid_queue-flightdeck-$VERSION.gem" \
+    --title "solid_queue-flightdeck $VERSION" \
     --notes-file "$NOTES"
   rm -f "$NOTES"
 fi
 
-say "Released flightdeck $VERSION 🎉"
+say "Released solid_queue-flightdeck $VERSION 🎉"

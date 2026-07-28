@@ -26,7 +26,7 @@ refuses to serve a single unauthenticated request.
 
 ```ruby
 # Gemfile
-gem "flightdeck"
+gem "solid_queue-flightdeck"
 ```
 
 No migrations, no asset configuration. Requires Ruby >= 3.1, Rails >= 7.1 and

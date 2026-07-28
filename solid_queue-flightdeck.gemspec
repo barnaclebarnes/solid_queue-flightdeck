@@ -3,7 +3,7 @@
 require_relative "lib/flightdeck/version"
 
 Gem::Specification.new do |spec|
-  spec.name = "flightdeck"
+  spec.name = "solid_queue-flightdeck"
   spec.version = Flightdeck::VERSION
   spec.authors = [ "Carl Mercier" ]
   spec.email = [ "carl@carlmercier.com" ]

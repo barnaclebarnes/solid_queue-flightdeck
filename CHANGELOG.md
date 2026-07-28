@@ -6,6 +6,13 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Changed
+
+- The gem is now named `solid_queue-flightdeck` (previously `flightdeck`).
+  Update your Gemfile line to `gem "solid_queue-flightdeck"` — the Ruby
+  namespace, mount point and configuration are unchanged. The old gem name
+  remains as a shell that depends on this one.
+
 ## [0.5.3] - 2026-07-28
 
 ### Fixed
