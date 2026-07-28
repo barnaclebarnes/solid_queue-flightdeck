@@ -160,6 +160,7 @@ bundle exec rake test:system   # headless Chrome (skipped if none installed)
 bundle exec rake screenshots   # regenerate docs/screenshots
 bundle exec rake assets:build  # rebuild CSS/JS
 bundle exec rubocop
+bin/release                    # full release: verify, push, wait for CI, tag, gem push (--dry-run to rehearse)
 ```
 
 Assets are committed, digest-named files under `app/assets/flightdeck/`, built
