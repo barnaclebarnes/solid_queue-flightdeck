@@ -23,6 +23,8 @@ bin/release [--dry-run]                           # full release: verify → pus
 
 Any change to a view, Stimulus controller, or CSS **requires `rake assets:build` and committing the rebuilt files** — CI's assets job rebuilds and fails on drift. A version bump also changes the built JS (its banner embeds `Flightdeck::VERSION`), so it too needs a rebuild; `bin/release` automates this.
 
+Maintain `CHANGELOG.md` for user-visible changes — brief and simple: one line per change under `[Unreleased]` in the appropriate Keep a Changelog section (Added/Changed/Fixed/Security), no essays. Internal-only changes (tests, CI, refactors) don't need an entry.
+
 ## Architecture
 
 **Rule zero: never monkey patch Solid Queue; never touch the host's connection.** All reads and writes go through `SolidQueue::Record` and the SolidQueue models, so `connects_to` multi-database routing works automatically and semaphore/blocked-execution invariants remain Solid Queue's job. Mutations delegate to Solid Queue's own methods (`FailedExecution#retry`, `Queue#pause`, `Process#prune`, `RecurringTask#enqueue`). No code touches the database at engine load/boot time (host apps must boot with the DB unreachable).
