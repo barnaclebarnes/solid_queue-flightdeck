@@ -1,59 +1,116 @@
 #!/usr/bin/env bash
-# Releases the version currently in lib/flightdeck/version.rb:
+# Cuts a release end to end: picks the version, rolls the CHANGELOG over, bumps
+# lib/flightdeck/version.rb, and publishes once CI is green.
 #
-#   1. preflight   — clean tree, on main, synced with origin, version not yet tagged
-#   2. build       — bundle install, rake assets:build (auto-commits a rebuild if
-#                    the version bump changed the banner), CHANGELOG sanity check
+#   1. preflight   — on main, clean tree, synced with origin, gh present, and a
+#                    non-empty ## [Unreleased] CHANGELOG section to release
+#   2. version     — VERSION argument, or an interactive prompt defaulting to a
+#                    patch bump; must be strict X.Y.Z, greater than the current
+#                    version, and not already tagged
 #   3. verify      — rubocop, fast suite in both host modes, system tests
-#   4. push + CI   — push main, then wait for GitHub Actions to go green
-#   5. publish     — tag vX.Y.Z, push the tag, gem build, gem push, GitHub release
+#                    (runs BEFORE anything on disk is touched)
+#   4. changelog   — rename [Unreleased] to [X.Y.Z] - YYYY-MM-DD, open a fresh
+#                    empty [Unreleased], repoint/add the compare link refs
+#   5. bump        — lib/flightdeck/version.rb
+#   6. build       — bundle install, rake assets:build, rake assets:check
+#   7. commit      — one "Release vX.Y.Z" commit: changelog, version, assets, lock
+#   8. push + CI   — push main, then wait for GitHub Actions to go green
+#   9. publish     — tag vX.Y.Z, push the tag, gem build, gem push, GitHub release
 #
-# The order is deliberate: nothing irreversible (tag, rubygems, release) happens
-# until CI has passed on the exact commit being released. RubyGems versions can
-# never be reused, so the publish step asks for confirmation first.
+# The order is deliberate: the suite runs before any file is modified, and
+# nothing irreversible (tag, rubygems, release) happens until CI has passed on
+# the exact commit being released. RubyGems versions can never be reused, so the
+# publish step asks for confirmation first.
 #
-#   bin/release              # full run
-#   bin/release --dry-run    # everything except push, tag, gem push, gh release
+# If CI fails after the push, the release commit is already on main but nothing
+# is tagged or published. Fix forward with a follow-up commit and re-run — note
+# that preflight will then complain about an empty [Unreleased] section, because
+# this run already consumed it; in that case finish the release by hand with the
+# commands printed by the CI-failure message.
+#
+#   bin/release                    # prompt for the version, then full run
+#   bin/release 0.6.0              # release 0.6.0
+#   bin/release 0.6.0 --dry-run    # preflight + version checks + verify, then stop
+#   bin/release --dry-run          # report the current version, verify, then stop
+#
+# A dry run never modifies a file, never commits, and never prompts (without a
+# VERSION argument it skips the version prompt entirely).
 set -euo pipefail
 
 cd "$(dirname "$0")/.."
 
-DRY_RUN=0
-[ "${1:-}" = "--dry-run" ] && DRY_RUN=1
-
 say()  { printf '\n\033[1m==> %s\033[0m\n' "$*"; }
 fail() { printf '\033[31merror: %s\033[0m\n' "$*" >&2; exit 1; }
 
-VERSION=$(ruby -r./lib/flightdeck/version -e 'puts Flightdeck::VERSION')
-TAG="v$VERSION"
+DRY_RUN=0
+VERSION_ARG=""
+for arg in "$@"; do
+  case "$arg" in
+    --dry-run) DRY_RUN=1 ;;
+    -*) fail "unknown option $arg (usage: bin/release [VERSION] [--dry-run])" ;;
+    *)
+      if [ -n "$VERSION_ARG" ]; then
+        fail "unexpected argument $arg (version already given as $VERSION_ARG)"
+      fi
+      VERSION_ARG="$arg"
+      ;;
+  esac
+done
+
+CURRENT_VERSION=$(ruby -r./lib/flightdeck/version -e 'puts Flightdeck::VERSION')
 
 # ---- 1. preflight ----------------------------------------------------------
-say "Releasing flightdeck $VERSION"
+say "Preflight (current version $CURRENT_VERSION)"
 
 [ "$(git branch --show-current)" = "main" ] || fail "not on main"
 git diff --quiet && git diff --cached --quiet || fail "working tree is not clean"
+# The release commit is `git add -A`, so untracked files would be swept into it.
+[ -z "$(git status --porcelain)" ] || fail "working tree has untracked files — commit, remove or ignore them first"
 git fetch origin main --tags --quiet
 [ "$(git rev-parse HEAD)" = "$(git rev-parse origin/main)" ] || fail "main is not in sync with origin/main — push or pull first"
-git rev-parse -q --verify "refs/tags/$TAG" >/dev/null && fail "$TAG already exists — bump lib/flightdeck/version.rb first"
 command -v gh >/dev/null || fail "gh CLI is required"
 
-grep -q "\[$VERSION\]" CHANGELOG.md || fail "CHANGELOG.md has no [$VERSION] section"
+# The [Unreleased] section is what gets released; it has to exist and say something.
+CHANGELOG_STATUS=0
+ruby -e '
+  c = File.read("CHANGELOG.md")
+  exit 1 unless c.include?("## [Unreleased]")
+  exit 2 if c[/^## \[Unreleased\]\n(.*?)(?=^## \[|^\[)/m, 1].to_s.strip.empty?
+' || CHANGELOG_STATUS=$?
+case "$CHANGELOG_STATUS" in
+  0) ;;
+  1) fail "CHANGELOG.md has no '## [Unreleased]' section" ;;
+  2) fail "the '## [Unreleased]' section of CHANGELOG.md is empty — add entries for this release first" ;;
+  *) fail "could not read CHANGELOG.md" ;;
+esac
 
-# ---- 2. build --------------------------------------------------------------
-say "Installing gems and rebuilding assets"
-bundle install --quiet
-bundle exec rake assets:build
-
-if ! git diff --quiet -- app/assets/flightdeck Gemfile.lock; then
-  # A version bump changes the built JS banner and the lockfile; anything else
-  # dirty at this point is a real mistake caught by the preflight above.
-  say "Committing rebuilt assets for $VERSION"
-  git add app/assets/flightdeck Gemfile.lock
-  git commit -m "Rebuild assets for $VERSION"
+# ---- 2. pick the version ---------------------------------------------------
+VERSION=""
+if [ -n "$VERSION_ARG" ]; then
+  VERSION="$VERSION_ARG"
+elif [ "$DRY_RUN" = 1 ]; then
+  say "Dry run without a VERSION argument — skipping the version prompt"
+else
+  SUGGESTION=$(ruby -e 'p = ARGV[0].split("."); puts [ *p[0..-2], p[-1].to_i + 1 ].join(".")' "$CURRENT_VERSION")
+  printf '\nCurrent version is %s. New version [%s]: ' "$CURRENT_VERSION" "$SUGGESTION"
+  read -r VERSION
+  [ -n "$VERSION" ] || VERSION="$SUGGESTION"
 fi
-bundle exec rake assets:check
 
-# ---- 3. verify -------------------------------------------------------------
+TAG=""
+if [ -n "$VERSION" ]; then
+  ruby -e 'exit ARGV[0].match?(/\A\d+\.\d+\.\d+\z/) ? 0 : 1' "$VERSION" ||
+    fail "version '$VERSION' is not a strict X.Y.Z version"
+  ruby -e 'exit Gem::Version.new(ARGV[0]) > Gem::Version.new(ARGV[1]) ? 0 : 1' "$VERSION" "$CURRENT_VERSION" ||
+    fail "version $VERSION must be greater than the current $CURRENT_VERSION"
+
+  TAG="v$VERSION"
+  git rev-parse -q --verify "refs/tags/$TAG" >/dev/null && fail "$TAG already exists"
+
+  say "Releasing flightdeck $VERSION"
+fi
+
+# ---- 3. verify (before anything on disk changes) ---------------------------
 say "Rubocop"
 bundle exec rubocop --parallel
 
@@ -67,20 +124,110 @@ say "System tests"
 bundle exec rake test:system
 
 if [ "$DRY_RUN" = 1 ]; then
-  say "Dry run complete — stopping before push/tag/publish"
+  say "Dry run complete — nothing was modified, committed or published"
   exit 0
 fi
 
-# ---- 4. push and wait for CI ----------------------------------------------
+# ---- 4. changelog rollover -------------------------------------------------
+say "Rolling CHANGELOG.md over to $VERSION"
+
+# Deterministic, no LLM. Builds the new file in memory, verifies it, and only
+# then writes — a failed check leaves CHANGELOG.md exactly as it was.
+NEW_VERSION="$VERSION" CURRENT_VERSION="$CURRENT_VERSION" ruby - <<'RUBY' || fail "changelog rollover failed — CHANGELOG.md was not modified"
+require "date"
+
+path            = "CHANGELOG.md"
+new_version     = ENV.fetch("NEW_VERSION")
+current_version = ENV.fetch("CURRENT_VERSION")
+today           = Date.today.strftime("%Y-%m-%d")
+original        = File.read(path)
+
+problems = []
+
+# The repo URL comes from the existing link refs, never hardcoded.
+repo_url = original[%r{^\[[^\]]+\]: (https?://\S+?)/(?:compare|releases)/}, 1]
+problems << "could not derive the repository URL from the existing link references" unless repo_url
+
+headers = original.scan(/^## \[Unreleased\]$/).size
+problems << "expected exactly one '## [Unreleased]' header, found #{headers}" unless headers == 1
+
+unreleased_links = original.scan(/^\[Unreleased\]: \S+$/).size
+problems << "expected exactly one '[Unreleased]:' link reference, found #{unreleased_links}" unless unreleased_links == 1
+
+if problems.empty?
+  updated = original.sub(/^## \[Unreleased\]$/,
+                         "## [Unreleased]\n\n## [#{new_version}] - #{today}")
+  updated = updated.sub(/^\[Unreleased\]: \S+$/,
+                        "[Unreleased]: #{repo_url}/compare/v#{new_version}...HEAD\n" \
+                        "[#{new_version}]: #{repo_url}/compare/v#{current_version}...v#{new_version}")
+
+  problems << %(missing "## [#{new_version}] - #{today}" header) unless
+    updated.include?("## [#{new_version}] - #{today}")
+  problems << "missing fresh ## [Unreleased] section" unless updated.include?("## [Unreleased]")
+  problems << "the new Unreleased section is not empty" unless
+    updated[/^## \[Unreleased\]\n(.*?)(?=^## \[|^\[)/m, 1].to_s.strip.empty?
+  problems << "the [Unreleased] link was not repointed at v#{new_version}...HEAD" unless
+    updated.match?(/^\[Unreleased\]: \S+\/compare\/v#{Regexp.escape(new_version)}\.\.\.HEAD$/)
+  problems << "missing [#{new_version}] compare link (v#{current_version}...v#{new_version})" unless
+    updated.match?(/^\[#{Regexp.escape(new_version)}\]: \S+\/compare\/v#{Regexp.escape(current_version)}\.\.\.v#{Regexp.escape(new_version)}$/)
+
+  lost = original.lines.map(&:chomp)
+                 .reject { |l| l.strip.empty? || l.start_with?("[Unreleased]:") }
+                 .reject { |l| updated.include?(l) }
+  problems << "these original lines went missing:\n  #{lost.join("\n  ")}" unless lost.empty?
+end
+
+unless problems.empty?
+  # $stderr.puts, not warn: warn is a no-op under RUBYOPT=-W0.
+  $stderr.puts "CHANGELOG.md rollover produced a bad file (original left untouched):"
+  $stderr.puts problems.map { |p| "- #{p}" }.join("\n")
+  exit 1
+end
+
+File.write(path, updated)
+RUBY
+
+# ---- 5. bump the version ---------------------------------------------------
+say "Bumping lib/flightdeck/version.rb to $VERSION"
+NEW_VERSION="$VERSION" CURRENT_VERSION="$CURRENT_VERSION" ruby - <<'RUBY' || fail "could not bump lib/flightdeck/version.rb"
+path    = "lib/flightdeck/version.rb"
+current = File.read(path)
+bumped  = current.sub(/VERSION = "#{Regexp.escape(ENV.fetch("CURRENT_VERSION"))}"/,
+                      %(VERSION = "#{ENV.fetch("NEW_VERSION")}"))
+if bumped == current
+  $stderr.puts "the VERSION substitution changed nothing in #{path}"
+  exit 1
+end
+File.write(path, bumped)
+RUBY
+
+# ---- 6. build --------------------------------------------------------------
+say "Installing gems and rebuilding assets"
+bundle install --quiet
+bundle exec rake assets:build
+bundle exec rake assets:check
+
+# ---- 7. commit -------------------------------------------------------------
+say "Committing Release $TAG"
+git add -A
+git commit -m "Release $TAG"
+
+# ---- 8. push and wait for CI ----------------------------------------------
 say "Pushing main"
 git push origin main
 
 say "Waiting for CI on $(git rev-parse --short HEAD)"
 sleep 10
 RUN_ID=$(gh run list --branch main --limit 1 --json databaseId --jq '.[0].databaseId')
-gh run watch "$RUN_ID" --exit-status || fail "CI failed — nothing was tagged or published"
+gh run watch "$RUN_ID" --exit-status || fail "CI failed — nothing was tagged or published.
+The Release $TAG commit is already on main. Fix forward and either re-run this
+script (preflight will refuse until [Unreleased] has entries again, since this
+run consumed it) or finish by hand once CI is green:
+  git tag -a $TAG -m \"flightdeck $VERSION\" && git push origin $TAG
+  gem build flightdeck.gemspec && gem push flightdeck-$VERSION.gem
+  gh release create $TAG flightdeck-$VERSION.gem --title \"flightdeck $VERSION\" --notes-file <notes>"
 
-# ---- 5. publish ------------------------------------------------------------
+# ---- 9. publish ------------------------------------------------------------
 printf '\nCI is green. Publish %s to RubyGems and tag %s? This cannot be undone. [y/N] ' "$VERSION" "$TAG"
 read -r answer
 [ "$answer" = "y" ] || [ "$answer" = "Y" ] || fail "aborted before publishing"
@@ -101,4 +248,4 @@ gh release create "$TAG" "flightdeck-$VERSION.gem" \
   --title "flightdeck $VERSION" \
   --notes-file /tmp/flightdeck-release-notes.md
 
-say "Released flightdeck $VERSION 🎉  Don't forget to start a new CHANGELOG section."
+say "Released flightdeck $VERSION 🎉"
