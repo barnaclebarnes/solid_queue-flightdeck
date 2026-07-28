@@ -12,6 +12,15 @@ require "active_job/railtie"
 Bundler.require(*Rails.groups)
 
 require "flightdeck"
+require "fileutils"
+
+# These are all gitignored working directories. Committed .keep files make a
+# plain checkout complete, but creating them here too means the dummy app boots
+# even from a tree where they were cleaned away — the logger below opens a file
+# and would otherwise take the whole suite down with Errno::ENOENT.
+%w[log tmp storage].each do |directory|
+  FileUtils.mkdir_p(File.expand_path("../#{directory}", __dir__))
+end
 
 module Dummy
   class Application < Rails::Application

@@ -1,6 +1,16 @@
-@import "tailwindcss";
+/* `source(none)` turns off Tailwind's automatic source detection, which would
+   otherwise scan the whole repository for class-name-like tokens. That made the
+   build depend on whatever untracked-but-not-ignored files happened to exist —
+   CI installs gems into vendor/bundle, so its stylesheet came out ~11KB larger
+   than a developer's and the committed digest never matched. Declaring the
+   sources explicitly makes the output a function of files we version, and
+   nothing else. */
+@import "tailwindcss" source(none);
 
 @source "../app";
+/* Our own build output lives here; scanning it would feed the build its own
+   previous result. */
+@source not "../app/assets";
 
 /* --------------------------------------------------------------------------
    Design tokens (from the approved mockups).

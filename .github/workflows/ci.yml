@@ -44,6 +44,10 @@ jobs:
     env:
       RAILS_ENV: test
       FLIGHTDECK_TEST_API_ONLY: ${{ matrix.host == 'api_only' && '1' || '' }}
+      # The Gemfile adds the matching driver when this is set, so CI never has
+      # to rewrite the Gemfile — bundler refuses to do that under the frozen
+      # mode setup-ruby configures.
+      FLIGHTDECK_DB: ${{ matrix.database != 'sqlite3' && matrix.database || '' }}
 
     steps:
       - uses: actions/checkout@v4
@@ -61,17 +65,21 @@ jobs:
       - uses: ruby/setup-ruby@v1
         with:
           ruby-version: "3.3"
-          bundler-cache: true
+          # Only the SQLite legs match the committed lockfile, so only they can
+          # use setup-ruby's cached, frozen install. The others resolve the
+          # extra driver in the step below.
+          bundler-cache: ${{ matrix.database == 'sqlite3' }}
 
-      - name: Add the database driver
+      - name: Install gems with the ${{ matrix.database }} driver
         if: matrix.database != 'sqlite3'
         run: |
-          if [ "${{ matrix.database }}" = "postgres" ]; then
-            bundle add pg --skip-install
-          else
-            bundle add mysql2 --skip-install
-          fi
-          bundle install --jobs 4
+          set -x
+          bundle config set --local path vendor/bundle
+          bundle config set --local frozen false
+          bundle config set --local deployment false
+          bundle config list
+          bundle install --jobs 4 --retry 3
+          bundle list | grep -E "pg |mysql2 " || true
 
       - name: Set DATABASE_URL
         if: matrix.database != 'sqlite3'

@@ -12,6 +12,29 @@ class Flightdeck::DashboardSystemTest < ApplicationSystemTestCase
     theme_button.click
   end
 
+  # What the toggle actually acts on: an explicit stamp if there is one, and
+  # otherwise whatever the browser prefers. Asserting against the raw
+  # data-theme attribute alone makes the test depend on which other test ran
+  # first, because the choice is remembered in localStorage.
+  def resolved_theme
+    page.evaluate_script(<<~JS)
+      document.documentElement.getAttribute('data-theme') ||
+        (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light')
+    JS
+  end
+
+  def reset_theme_preference
+    page.execute_script(<<~JS)
+      try { window.localStorage.removeItem('flightdeck:theme'); } catch (error) {}
+      document.documentElement.removeAttribute('data-theme');
+    JS
+    page.refresh
+  end
+
+  def expected_theme_label
+    "Switch to #{resolved_theme == "dark" ? "light" : "dark"} theme"
+  end
+
   def visible_theme_icons
     page.evaluate_script(<<~JS)
       Array.from(document.querySelectorAll('.fd-theme-toggle svg'))
@@ -74,11 +97,12 @@ class Flightdeck::DashboardSystemTest < ApplicationSystemTestCase
 
   test "the theme toggle is an icon button whose label names what clicking does" do
     visit "/flightdeck"
+    reset_theme_preference
 
     # The label has to describe the *action*, and stay true after toggling.
     label_before = theme_button[:"aria-label"]
     assert_match(/\ASwitch to (light|dark) theme\z/, label_before)
-    assert_equal theme_stamp == "dark" ? "Switch to light theme" : "Switch to dark theme", label_before
+    assert_equal expected_theme_label, label_before
 
     # Icon only: no text, and exactly one of the two icons visible.
     assert_empty theme_button.text.strip
@@ -87,8 +111,7 @@ class Flightdeck::DashboardSystemTest < ApplicationSystemTestCase
     toggle_theme
     wait_until(message: "the aria-label never followed the theme") { theme_button[:"aria-label"] != label_before }
 
-    assert_equal theme_stamp == "dark" ? "Switch to light theme" : "Switch to dark theme",
-                 theme_button[:"aria-label"]
+    assert_equal expected_theme_label, theme_button[:"aria-label"]
     assert_equal 1, visible_theme_icons, "the icon should have swapped, not doubled up"
   end
 

@@ -1,8 +1,15 @@
 *.gem
 .bundle/
-pkg/
-tmp/
+/pkg/
+/tmp/
+/vendor/bundle/
 
-test/dummy/log/
-test/dummy/tmp/
-test/dummy/storage/
+# The dummy app's working directories must exist in a fresh checkout or the app
+# cannot open its log file. Git cannot re-include a file inside an ignored
+# directory, so ignore the *contents* and commit a .keep in each.
+test/dummy/log/*
+!test/dummy/log/.keep
+test/dummy/tmp/*
+!test/dummy/tmp/.keep
+test/dummy/storage/*
+!test/dummy/storage/.keep
