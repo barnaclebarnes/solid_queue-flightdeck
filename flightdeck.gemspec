@@ -12,7 +12,7 @@ Gem::Specification.new do |spec|
   spec.description = "Flightdeck is a mountable Rails engine that gives Solid Queue a fast, " \
                      "polished dashboard: jobs, failures, queues, processes, recurring tasks " \
                      "and live charts. Works in API-only hosts and ships its own precompiled assets."
-  spec.homepage = "https://github.com/cmercier/flightdeck"
+  spec.homepage = "https://github.com/cmer/solid_queue-flightdeck"
   spec.license = "MIT"
   spec.required_ruby_version = ">= 3.1"
 

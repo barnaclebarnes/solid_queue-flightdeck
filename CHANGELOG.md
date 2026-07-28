@@ -6,7 +6,7 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
-## [0.1.0] — unreleased
+## [0.5.0] — unreleased
 
 First release.
 
@@ -55,5 +55,5 @@ First release.
 - Assets are served only by exact match against the built manifest, so a request
   can never name a file that was not built.
 
-[Unreleased]: https://github.com/cmercier/flightdeck/compare/v0.1.0...HEAD
-[0.1.0]: https://github.com/cmercier/flightdeck/releases/tag/v0.1.0
+[Unreleased]: https://github.com/cmer/solid_queue-flightdeck/compare/v0.5.0...HEAD
+[0.5.0]: https://github.com/cmer/solid_queue-flightdeck/releases/tag/v0.5.0
