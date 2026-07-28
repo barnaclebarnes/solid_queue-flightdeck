@@ -6,6 +6,8 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [0.5.2] - 2026-07-27
+
 ### Fixed
 
 - The dashboard no longer 500s when the engine is mounted under a named scope
@@ -68,6 +70,7 @@ First release.
 - Assets are served only by exact match against the built manifest, so a request
   can never name a file that was not built.
 
-[Unreleased]: https://github.com/cmer/solid_queue-flightdeck/compare/v0.5.1...HEAD
+[Unreleased]: https://github.com/cmer/solid_queue-flightdeck/compare/v0.5.2...HEAD
+[0.5.2]: https://github.com/cmer/solid_queue-flightdeck/compare/v0.5.1...v0.5.2
 [0.5.1]: https://github.com/cmer/solid_queue-flightdeck/compare/v0.5.0...v0.5.1
 [0.5.0]: https://github.com/cmer/solid_queue-flightdeck/releases/tag/v0.5.0
