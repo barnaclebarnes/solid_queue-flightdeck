@@ -6,6 +6,8 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [1.0.0] - 2026-08-11
+
 ### Changed
 
 - Flightdeck is now 1.0: no functional changes from 0.6.0, but the mount point,
@@ -93,7 +95,8 @@ First release.
 - Assets are served only by exact match against the built manifest, so a request
   can never name a file that was not built.
 
-[Unreleased]: https://github.com/cmer/solid_queue-flightdeck/compare/v0.6.0...HEAD
+[Unreleased]: https://github.com/cmer/solid_queue-flightdeck/compare/v1.0.0...HEAD
+[1.0.0]: https://github.com/cmer/solid_queue-flightdeck/compare/v0.6.0...v1.0.0
 [0.6.0]: https://github.com/cmer/solid_queue-flightdeck/compare/v0.5.3...v0.6.0
 [0.5.3]: https://github.com/cmer/solid_queue-flightdeck/compare/v0.5.2...v0.5.3
 [0.5.2]: https://github.com/cmer/solid_queue-flightdeck/compare/v0.5.1...v0.5.2
