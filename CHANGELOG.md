@@ -6,6 +6,8 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [1.1.0] - 2026-08-12
+
 ### Added
 
 - The interface font is now configurable: pick one at the bottom of the sidebar
@@ -108,7 +110,8 @@ First release.
 - Assets are served only by exact match against the built manifest, so a request
   can never name a file that was not built.
 
-[Unreleased]: https://github.com/cmer/solid_queue-flightdeck/compare/v1.0.0...HEAD
+[Unreleased]: https://github.com/cmer/solid_queue-flightdeck/compare/v1.1.0...HEAD
+[1.1.0]: https://github.com/cmer/solid_queue-flightdeck/compare/v1.0.0...v1.1.0
 [1.0.0]: https://github.com/cmer/solid_queue-flightdeck/compare/v0.6.0...v1.0.0
 [0.6.0]: https://github.com/cmer/solid_queue-flightdeck/compare/v0.5.3...v0.6.0
 [0.5.3]: https://github.com/cmer/solid_queue-flightdeck/compare/v0.5.2...v0.5.3
