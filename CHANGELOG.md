@@ -6,6 +6,12 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Changed
+
+- Flightdeck is now 1.0: no functional changes from 0.6.0, but the mount point,
+  `Flightdeck.configure` options and `base_controller_class` contract are now
+  stable and covered by semantic versioning.
+
 ## [0.6.0] - 2026-07-28
 
 ### Changed
