@@ -6,6 +6,11 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Added
+
+- A "Blocked" tile on the Overview, so jobs held by a concurrency limit are part
+  of the backlog you can see at a glance.
+
 ## [1.1.0] - 2026-08-12
 
 ### Added
